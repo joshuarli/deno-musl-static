@@ -436,7 +436,7 @@ fn op_create_worker(
     // OS. Without this, glibc in particular holds onto the fragmented heap
     // pages, causing RSS to remain high after many workers are created and
     // destroyed (https://github.com/denoland/deno/issues/26058).
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
     {
       // SAFETY: calling libc function with no preconditions.
       unsafe {

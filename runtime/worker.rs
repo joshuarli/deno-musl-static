@@ -64,11 +64,11 @@ use crate::shared::runtime;
 
 pub type FormatJsErrorFn = dyn Fn(&JsError) -> String + Sync + Send;
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 pub(crate) static MEMORY_TRIM_HANDLER_ENABLED: LazyLock<bool> =
   LazyLock::new(|| std::env::var_os("DENO_USR2_MEMORY_TRIM").is_some());
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 pub(crate) static SIGUSR2_RX: LazyLock<tokio::sync::watch::Receiver<()>> =
   LazyLock::new(|| {
     let (tx, rx) = tokio::sync::watch::channel(());
@@ -862,7 +862,7 @@ impl MainWorker {
     }
   }
 
-  #[cfg(not(target_os = "linux"))]
+  #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
   pub fn setup_memory_trim_handler(&mut self) {
     // Noop
   }
@@ -871,7 +871,7 @@ impl MainWorker {
   /// memory and notifying V8 of low memory conditions.
   /// Note that this must be called within a tokio runtime.
   /// Calling this method multiple times will be a no-op.
-  #[cfg(target_os = "linux")]
+  #[cfg(all(target_os = "linux", target_env = "gnu"))]
   pub fn setup_memory_trim_handler(&mut self) {
     if self.memory_trim_handle.is_some() {
       return;

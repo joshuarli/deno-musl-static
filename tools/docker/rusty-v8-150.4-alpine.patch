@@ -1,0 +1,63 @@
+--- a/build.rs
++++ b/build.rs
+@@ -410,7 +410,9 @@
+   // cross-compilation setup
+   if target_arch == "aarch64" {
+     gn_args.push(r#"target_cpu="arm64""#.to_string());
+-    if target_os == "linux" {
++    if target_os == "linux"
++      && env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default() != "musl"
++    {
+       gn_args.push("use_sysroot=true".to_string());
+       maybe_install_sysroot("arm64");
+       maybe_install_sysroot("amd64");
+@@ -659,4 +659,21 @@
+ fn download_rust_toolchain() {
++  if env::var_os("RUSTY_V8_USE_SYSTEM_RUST").is_some() {
++    println!("Using the system Rust toolchain");
++    let rustc = Command::new("rustc")
++      .arg("-vV")
++      .output()
++      .expect("Could not query the system Rust toolchain");
++    assert!(rustc.status.success());
++    fs::create_dir_all("third_party/rust-toolchain").unwrap();
++    let rustc_version = String::from_utf8(rustc.stdout).unwrap();
++    fs::write(
++      "third_party/rust-toolchain/VERSION",
++      rustc_version.lines().next().unwrap(),
++    )
++    .unwrap();
++    return;
++  }
++
+   assert!(
+     Command::new(python())
+       .arg("./tools/rust_toolchain.py")
+--- a/build/config/compiler_cpu_abi.gn
++++ b/build/config/compiler_cpu_abi.gn
+@@ -85,5 +85,5 @@
+   } else if (current_cpu == "arm64") {
+     if (is_clang && !is_android && !is_fuchsia && !is_chromeos_device) {
+-      cpu_abi_cflags += [ "--target=aarch64-linux-gnu" ]
+-      cpu_abi_ldflags += [ "--target=aarch64-linux-gnu" ]
++      cpu_abi_cflags += [ "--target=aarch64-alpine-linux-musl" ]
++      cpu_abi_ldflags += [ "--target=aarch64-alpine-linux-musl" ]
+     }
+--- a/build/config/clang/BUILD.gn
++++ b/build/config/clang/BUILD.gn
+@@ -1 +1,2 @@
+-          _dir = "aarch64-unknown-linux-gnu"
++          _dir = "linux"
++          _suffix = "-aarch64"
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ -592,1 +592,1 @@
+-      cflags += [ "-fdiagnostics-show-inlining-chain" ]
++      cflags += []
+@@ -631,1 +631,1 @@
+-      cflags += [ "-fno-lifetime-dse" ]
++      cflags += []
+--- a/build/config/sanitizers/sanitizers.gni
++++ b/build/config/sanitizers/sanitizers.gni
+@@ -544,1 +544,0 @@
+-        "-fsanitize-ignore-for-ubsan-feature=${invoker.sanitizer}",

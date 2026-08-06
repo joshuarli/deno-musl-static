@@ -1,0 +1,170 @@
+# Reproducible native aarch64 musl build probe for Deno.
+#
+# Build this image with --platform=linux/arm64. On an Apple Silicon host that
+# runs natively; on another host Docker may use emulation and the V8 build can
+# take substantially longer.
+#
+# The default attempt uses the musl prebuilt Rusty V8 archive when one exists.
+# Set V8_FROM_SOURCE=1 to exercise the Alpine packaging path instead. The
+# source-V8 path is intentionally exposed rather than hidden behind patches:
+# it is the part that needs upstream-compatible fixes for a production build.
+FROM alpine:latest
+
+ARG LLVM_VERSION=22.1.8
+ARG LLVM_MAJOR=22
+ARG LLVM_URL=https://github.com/laputa-systems/llvm-prebuilt-musl/releases/download/llvm-musl-22.1.8/clang%2Bllvm-22.1.8-aarch64-linux-musl.tar.xz
+ARG LLVM_SHA256=675f9cf871313a5672a63882d4d30dd6dd55df0aa9caee70970542eb03a23da3
+ARG LLVM_SIZE=73611888
+ARG V8_FROM_SOURCE=1
+ARG RUST_TARGET=aarch64-alpine-linux-musl
+ARG BUILD_DENORT=0
+
+# Keep this list explicit. These are the native-musl toolchain and the build
+# inputs used by V8, bindgen, and Deno's system-library probes.
+RUN apk add --no-cache \
+    bash \
+    binutils \
+    build-base \
+    ca-certificates \
+    clang22-libclang \
+    cargo \
+    cmake \
+    curl \
+    file \
+    git \
+    gn \
+    icu-dev \
+    jq \
+    lcms2-dev \
+    linux-headers \
+    nodejs \
+    npm \
+    pkgconf \
+    protobuf-dev \
+    protoc \
+    python3 \
+    rust \
+    samurai \
+    simdutf-dev \
+    sqlite-dev \
+    xz \
+    zlib-dev \
+    zlib-ng-dev \
+    zstd-dev \
+  && update-ca-certificates
+
+# Use the pinned Laputa musl LLVM bundle. Alpine's compiler packages do not
+# provide the static libc++/libc++abi/unwind archives required by the final
+# Deno link. The bundle is validated by its size, digest, target, and runtime
+# archive contents before any source is compiled.
+RUN set -eux; \
+    mkdir -p /opt/llvm-musl; \
+    curl -fsSL "${LLVM_URL}" -o /tmp/llvm-musl.tar.xz; \
+    test "$(stat -c %s /tmp/llvm-musl.tar.xz)" = "${LLVM_SIZE}"; \
+    echo "${LLVM_SHA256}  /tmp/llvm-musl.tar.xz" | sha256sum -c -; \
+    tar -xJf /tmp/llvm-musl.tar.xz -C /opt/llvm-musl --strip-components=1; \
+    rm -f /tmp/llvm-musl.tar.xz; \
+    test "$(/opt/llvm-musl/bin/clang -dumpmachine)" = "aarch64-unknown-linux-musl"; \
+    test -f /opt/llvm-musl/lib/libc++.a; \
+    test -f /opt/llvm-musl/lib/libc++abi.a; \
+    test -f /opt/llvm-musl/lib/libunwind.a; \
+    test -f /opt/llvm-musl/lib/clang/${LLVM_MAJOR}/lib/linux/libclang_rt.builtins-aarch64.a
+
+ENV PATH="/opt/llvm-musl/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    AR="/opt/llvm-musl/bin/llvm-ar" \
+    CC="/opt/llvm-musl/bin/clang" \
+    CXX="/opt/llvm-musl/bin/clang++" \
+    LD="/opt/llvm-musl/bin/clang++" \
+    NM="/opt/llvm-musl/bin/llvm-nm" \
+    RANLIB="/opt/llvm-musl/bin/llvm-ranlib" \
+    STRIP="/opt/llvm-musl/bin/llvm-strip" \
+    OBJCOPY="/opt/llvm-musl/bin/llvm-objcopy" \
+    BUILD_CC="/opt/llvm-musl/bin/clang" \
+    BUILD_CXX="/opt/llvm-musl/bin/clang++" \
+    BUILD_AR="/opt/llvm-musl/bin/llvm-ar" \
+    BUILD_NM="/opt/llvm-musl/bin/llvm-nm" \
+    BUILD_RANLIB="/opt/llvm-musl/bin/llvm-ranlib" \
+    BUILD_LD="/opt/llvm-musl/bin/clang++" \
+    BUILD_STRIP="/opt/llvm-musl/bin/llvm-strip" \
+    BUILD_OBJCOPY="/opt/llvm-musl/bin/llvm-objcopy" \
+    CFLAGS="-Wno-unknown-warning-option" \
+    CXXFLAGS="-Wno-unknown-warning-option" \
+    LIBRARY_PATH="/opt/llvm-musl/lib" \
+    LIBCLANG_PATH="/usr/lib/llvm22/lib" \
+    GN="/usr/bin/gn" \
+    NINJA="/usr/bin/samu" \
+    CLANG_BASE_PATH="/opt/llvm-musl" \
+    GN_ARGS="custom_toolchain=\"//build/toolchain/linux/unbundle:default\" host_toolchain=\"//build/toolchain/linux/unbundle:default\" v8_snapshot_toolchain=\"//build/toolchain/linux/unbundle:default\" clang_base_path=\"/opt/llvm-musl\" clang_version=${LLVM_MAJOR} fatal_linker_warnings=false is_debug=true symbol_level=1 use_custom_libcxx=true use_sysroot=false use_system_libffi=true rust_sysroot_absolute=\"/usr\" rust_bindgen_root=\"/usr\" v8_enable_temporal_support=false" \
+    EXTRA_GN_ARGS="use_custom_libcxx=true" \
+    RUSTY_V8_USE_SYSTEM_RUST=1 \
+    V8_FROM_SOURCE=${V8_FROM_SOURCE} \
+    BUILD_DENORT=${BUILD_DENORT} \
+    CARGO_BUILD_TARGET=${RUST_TARGET} \
+    CARGO_TERM_COLOR=always \
+    RUST_MIN_STACK=4194304
+
+# This probe is intentionally static-only. A passing build must not acquire a
+# loader or shared-library dependency as a side effect of iteration.
+
+WORKDIR /src/deno
+COPY . .
+
+# Make the target and the resulting ELF properties visible in the build log.
+RUN set -eux; \
+    rustc -vV; \
+    clang --version; \
+    clang -dumpmachine; \
+    llvm-ar --version; \
+    gn --version; \
+    rustc --print host-tuple; \
+    test "$(rustc --print host-tuple)" = "${RUST_TARGET}"
+
+# Rusty V8 150.4.0 has no prebuilt archive for Alpine's target and its source
+# build needs a small downstream overlay: disable the aarch64 Debian sysroot,
+# use Alpine's target triple in GN, and use the Alpine Rust toolchain.
+RUN set -eux; \
+    cargo fetch --locked; \
+    v8_dir="$(find /root/.cargo/registry/src -type d -name 'v8-150.4.0' -print -quit)"; \
+    test -n "${v8_dir}"; \
+    patch -d "${v8_dir}" -p1 < tools/docker/rusty-v8-150.4-alpine.patch; \
+    icu_data_dir="$(find /root/.cargo/registry/src -type d -name 'deno_core_icudata-0.77.0' -print -quit)"; \
+    test -n "${icu_data_dir}"; \
+    test -f "${icu_data_dir}/src/icudtl.dat"; \
+    install -D -m 0644 "${icu_data_dir}/src/icudtl.dat" "${v8_dir}/third_party/icu/common/icudtl.dat"
+
+# Build a debug Deno CLI first. The optional denort build is enabled explicitly
+# once the faster single-binary iteration reaches the link and ELF checks.
+RUN set -eux; \
+    RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static" \
+      cargo build --locked -p deno --bin deno; \
+    if [ "${BUILD_DENORT}" = 1 ]; then \
+      RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static" \
+        cargo build --locked -p denort --bin denort; \
+    fi
+
+RUN set -eux; \
+    for binary in deno; do \
+      path="target/${RUST_TARGET}/debug/${binary}"; \
+      file "${path}"; \
+      readelf -lW "${path}"; \
+      readelf -dW "${path}" || true; \
+      if readelf -lW "${path}" | grep -q 'INTERP'; then \
+        echo "ERROR: static ${binary} unexpectedly has an ELF interpreter" >&2; \
+        exit 1; \
+      fi; \
+      if readelf -dW "${path}" | grep -q 'NEEDED'; then \
+        echo "ERROR: static ${binary} unexpectedly has dynamic dependencies" >&2; \
+        exit 1; \
+      fi; \
+    done; \
+    if [ "${BUILD_DENORT}" = 1 ]; then \
+      path="target/${RUST_TARGET}/debug/denort"; \
+      file "${path}"; \
+      if readelf -lW "${path}" | grep -q 'INTERP' || readelf -dW "${path}" | grep -q 'NEEDED'; then \
+        echo "ERROR: static denort has dynamic ELF metadata" >&2; \
+        exit 1; \
+      fi; \
+    fi
+
+VOLUME /artifacts
+CMD ["sh", "-ec", "cp target/${RUST_TARGET}/debug/deno /artifacts/deno-aarch64-unknown-linux-musl; chmod +x /artifacts/deno-aarch64-unknown-linux-musl; if [ \"${BUILD_DENORT}\" = 1 ]; then cp target/${RUST_TARGET}/debug/denort /artifacts/denort-aarch64-unknown-linux-musl; chmod +x /artifacts/denort-aarch64-unknown-linux-musl; fi"]
