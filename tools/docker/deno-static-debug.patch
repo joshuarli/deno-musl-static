@@ -1,8 +1,27 @@
 --- a/cli/rt/Cargo.toml
 +++ b/cli/rt/Cargo.toml
-@@ -35,1 +35,0 @@
+@@ -32,4 +32,0 @@
+-[build-dependencies]
+-deno_runtime.workspace = true
+-deno_core.workspace = true
 -v8.workspace = true
+--- a/cli/rt/build.rs
++++ b/cli/rt/build.rs
+@@ -3,9 +3,1 @@
+-fn main() {
+-  // Skip building from docs.rs.
+-  if std::env::var_os("DOCS_RS").is_some() {
+-    return;
+-  }
+-
+-  deno_runtime::deno_napi::print_linker_flags("denort");
+-  deno_runtime::deno_webgpu::print_linker_flags("denort");
+-}
++fn main() {}
 --- a/cli/rt_desktop/Cargo.toml
 +++ b/cli/rt_desktop/Cargo.toml
-@@ -26,1 +26,0 @@
+@@ -23,4 +23,0 @@
+-[build-dependencies]
+-deno_runtime.workspace = true
+-deno_core.workspace = true
 -v8.workspace = true

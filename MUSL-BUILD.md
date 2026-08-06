@@ -72,6 +72,11 @@ Latest probe result:
 - It also uses `/usr/bin/ccache` for V8's compile actions. The ccache namespace
   is tied to the LLVM archive digest, and BuildKit persists both the ccache data
   and Cargo's `target/` directory across rebuilds.
+- The debug probe applies `tools/docker/deno-static-debug.patch` only when
+  `BUILD_DENORT=0`. It removes the unused host-side build dependency graph and
+  makes the `denort`-only linker-flag build script a no-op; the normal target
+  V8 dependency remains unchanged. This keeps the first Deno binary iteration
+  from compiling a second host V8.
 
 ## Alpine Deno patch reconciliation
 
@@ -88,6 +93,7 @@ behavior rather than applying old patches by filename.
 | `v8-build.patch` | Partially superseded: this probe disables sysroot/download paths, uses system Rust, and uses the pinned Laputa LLVM bundle. Its Alpine system-library link additions remain under evaluation because this build must link static archives. |
 | `v8-compiler.patch` | Aarch64 musl target/runtime paths are ported; the split-threshold compiler workaround is also removed. Other architecture hunks are outside this probe. |
 | `disable-core-defaults.patch` | Already present in the workspace dependency declaration; `deno_core` selects only `reactor-tokio` and the explicit custom-libc++ feature. |
+| `deno-static-debug.patch` | Local `BUILD_DENORT=0` iteration overlay: removes the unused host-side V8 graph and skips `denort`-only linker-flag generation so the probe builds V8 once for the target. |
 | `v8-use-system-icu.patch` | Not applied: this probe keeps the version-matched ICU data embedded in Rusty V8 while the static ICU/link contract is established. |
 | `use-system-libs.patch` | Not applied yet: system-library selection changes SQLite, zstd, libffi, and lcms2 link inputs and must be tested as static archives, not assumed from the Alpine shared-library recipe. |
 | `unbundle-ca-certs.patch` | Not a build-portability prerequisite; deferred as a separate certificate/runtime policy decision. |
