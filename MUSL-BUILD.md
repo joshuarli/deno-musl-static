@@ -61,6 +61,9 @@ Latest probe result:
 - The Docker environment supplies explicit target and host compiler, linker,
   archiver, symbol, and binary utility paths, following the hermetic Chromium
   musl build at `/Users/josh/d/chromium-portable-hermetic-musl-build`.
+- It also uses `/usr/bin/ccache` for V8's compile actions. The ccache namespace
+  is tied to the LLVM archive digest, and BuildKit persists both the ccache data
+  and Cargo's `target/` directory across rebuilds.
 
 ## Immediate next judge
 
@@ -72,6 +75,21 @@ docker buildx build --platform linux/arm64 --progress=plain \
   --build-arg BUILD_DENORT=0 \
   -t deno-alpine-aarch64-musl-probe \
   -f tools/docker/Dockerfile.alpine-aarch64-musl .
+```
+
+Export without a macOS bind mount. The image copies checked binaries into a
+named-volume-backed `/artifacts` directory:
+
+```sh
+docker volume create deno-aarch64-musl-artifacts
+docker run --rm --platform linux/arm64 \
+  --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
+  deno-alpine-aarch64-musl-probe
+docker create --name deno-aarch64-musl-copy \
+  --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
+  alpine:latest
+docker cp deno-aarch64-musl-copy:/artifacts/deno-aarch64-unknown-linux-musl .
+docker rm deno-aarch64-musl-copy
 ```
 
 The next failure should be classified at the narrowest layer:

@@ -4,10 +4,9 @@
 # runs natively; on another host Docker may use emulation and the V8 build can
 # take substantially longer.
 #
-# The default attempt uses the musl prebuilt Rusty V8 archive when one exists.
-# Set V8_FROM_SOURCE=1 to exercise the Alpine packaging path instead. The
-# source-V8 path is intentionally exposed rather than hidden behind patches:
-# it is the part that needs upstream-compatible fixes for a production build.
+# The default attempt builds V8 from source. The source-V8 path is intentionally
+# exposed rather than hidden behind patches: it is the part that needs
+# upstream-compatible fixes for a production build.
 FROM alpine:latest
 
 ARG LLVM_VERSION=22.1.8
@@ -25,6 +24,7 @@ RUN apk add --no-cache \
     bash \
     binutils \
     build-base \
+    ccache \
     ca-certificates \
     clang22-libclang \
     cargo \
@@ -94,7 +94,16 @@ ENV PATH="/opt/llvm-musl/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
     GN="/usr/bin/gn" \
     NINJA="/usr/bin/samu" \
     CLANG_BASE_PATH="/opt/llvm-musl" \
-    GN_ARGS="custom_toolchain=\"//build/toolchain/linux/unbundle:default\" host_toolchain=\"//build/toolchain/linux/unbundle:default\" v8_snapshot_toolchain=\"//build/toolchain/linux/unbundle:default\" clang_base_path=\"/opt/llvm-musl\" clang_version=${LLVM_MAJOR} fatal_linker_warnings=false is_debug=true symbol_level=1 use_custom_libcxx=true use_sysroot=false use_system_libffi=true rust_sysroot_absolute=\"/usr\" rust_bindgen_root=\"/usr\" v8_enable_temporal_support=false" \
+    CCACHE_DIR="/ccache" \
+    CCACHE_TEMPDIR="/ccache/tmp" \
+    CCACHE_COMPILERCHECK=content \
+    CCACHE_COMPRESS=true \
+    CCACHE_COMPRESSLEVEL=1 \
+    CCACHE_MAXSIZE=10G \
+    CCACHE_CC="/opt/llvm-musl/bin/clang" \
+    CCACHE_CXX="/opt/llvm-musl/bin/clang++" \
+    CCACHE_NAMESPACE="aarch64-${LLVM_SHA256}" \
+    GN_ARGS="custom_toolchain=\"//build/toolchain/linux/unbundle:default\" host_toolchain=\"//build/toolchain/linux/unbundle:default\" v8_snapshot_toolchain=\"//build/toolchain/linux/unbundle:default\" cc_wrapper=\"/usr/bin/ccache\" clang_base_path=\"/opt/llvm-musl\" clang_version=${LLVM_MAJOR} fatal_linker_warnings=false is_debug=true symbol_level=1 use_custom_libcxx=true use_sysroot=false use_system_libffi=true rust_sysroot_absolute=\"/usr\" rust_bindgen_root=\"/usr\" v8_enable_temporal_support=false" \
     EXTRA_GN_ARGS="use_custom_libcxx=true" \
     RUSTY_V8_USE_SYSTEM_RUST=1 \
     V8_FROM_SOURCE=${V8_FROM_SOURCE} \
@@ -115,6 +124,7 @@ RUN set -eux; \
     clang --version; \
     clang -dumpmachine; \
     llvm-ar --version; \
+    ccache --version; \
     gn --version; \
     rustc --print host-tuple; \
     test "$(rustc --print host-tuple)" = "${RUST_TARGET}"
@@ -134,15 +144,24 @@ RUN set -eux; \
 
 # Build a debug Deno CLI first. The optional denort build is enabled explicitly
 # once the faster single-binary iteration reaches the link and ELF checks.
-RUN set -eux; \
+RUN --mount=type=cache,id=deno-aarch64-musl-target,target=/src/deno/target \
+    --mount=type=cache,id=deno-aarch64-musl-ccache,target=/ccache \
+    set -eux; \
     RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static" \
       cargo build --locked -p deno --bin deno; \
     if [ "${BUILD_DENORT}" = 1 ]; then \
       RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static" \
         cargo build --locked -p denort --bin denort; \
-    fi
+    fi; \
+    mkdir -p /opt/deno-artifacts; \
+    cp "target/${RUST_TARGET}/debug/deno" /opt/deno-artifacts/deno-aarch64-unknown-linux-musl; \
+    if [ "${BUILD_DENORT}" = 1 ]; then \
+      cp "target/${RUST_TARGET}/debug/denort" /opt/deno-artifacts/denort-aarch64-unknown-linux-musl; \
+    fi; \
+    ccache --show-stats
 
-RUN set -eux; \
+RUN --mount=type=cache,id=deno-aarch64-musl-target,target=/src/deno/target \
+    set -eux; \
     for binary in deno; do \
       path="target/${RUST_TARGET}/debug/${binary}"; \
       file "${path}"; \
@@ -167,4 +186,4 @@ RUN set -eux; \
     fi
 
 VOLUME /artifacts
-CMD ["sh", "-ec", "cp target/${RUST_TARGET}/debug/deno /artifacts/deno-aarch64-unknown-linux-musl; chmod +x /artifacts/deno-aarch64-unknown-linux-musl; if [ \"${BUILD_DENORT}\" = 1 ]; then cp target/${RUST_TARGET}/debug/denort /artifacts/denort-aarch64-unknown-linux-musl; chmod +x /artifacts/denort-aarch64-unknown-linux-musl; fi"]
+CMD ["sh", "-ec", "cp /opt/deno-artifacts/deno-aarch64-unknown-linux-musl /artifacts/deno-aarch64-unknown-linux-musl; chmod +x /artifacts/deno-aarch64-unknown-linux-musl; if [ \"${BUILD_DENORT}\" = 1 ]; then cp /opt/deno-artifacts/denort-aarch64-unknown-linux-musl /artifacts/denort-aarch64-unknown-linux-musl; chmod +x /artifacts/denort-aarch64-unknown-linux-musl; fi"]
