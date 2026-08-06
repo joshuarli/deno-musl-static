@@ -35,11 +35,19 @@ The build has already established these facts:
 
 Latest probe result:
 
-- The debug V8 action graph reached its generated helper links after the
-  Clang-22 flag overlay and static archive search path were applied. The prior
-  helper-link failure for `libc++abi.a` and `libunwind.a` is therefore resolved.
-- The run was stopped during the long native V8 compile before it produced a
-  final `deno` ELF. No artifact is considered buildable yet.
+- The debug V8 action graph reached 360 of 687 compile actions in its current
+  target graph. The Clang-22 flag overlay and static archive search path were
+  applied, and the prior helper-link failure for `libc++abi.a` and
+  `libunwind.a` is resolved.
+- ccache is active: generated V8 commands invoke `/usr/bin/ccache` before the
+  pinned LLVM compiler, and BuildKit persists its `/ccache` cache mount.
+- The sanitizer callback overlay now handles V8's trap-only hardening without
+  adding sanitizer headers or runtimes.
+- The run next stopped at V8's debug-only `execinfo.h` include. The source
+  overlay now limits that optional symbolization helper to environments that
+  provide it; the next run will test the remaining V8 and Deno graph.
+- No final `deno` ELF has been produced yet, so no artifact is considered
+  buildable.
 
 ## Ported changes
 
@@ -64,6 +72,27 @@ Latest probe result:
 - It also uses `/usr/bin/ccache` for V8's compile actions. The ccache namespace
   is tied to the LLVM archive digest, and BuildKit persists both the ccache data
   and Cargo's `target/` directory across rebuilds.
+
+## Alpine Deno patch reconciliation
+
+Alpine's current `community/deno` recipe is for Deno 2.7.4 and Rusty V8
+146.1.0. This checkout is on Rusty V8 150.4.0, so the inventory below records
+behavior rather than applying old patches by filename.
+
+| Alpine patch | Status in this build |
+| --- | --- |
+| `musl-malloc_trim.patch` | Already present in the Deno Rust sources; GNU-Linux-only allocator trimming and `SIGUSR2` handling. |
+| `stacker-detect-stack-overflow.patch` | Applied through `tools/docker/stacker-0.1.15-alpine.patch`. |
+| `stacker-disable-guess_os_stack_limit.patch` | Applied through the same stacker overlay; musl avoids the Linux pthread stack-limit guess. |
+| `v8-no-execinfo.patch` | Covered by `tools/docker/rusty-v8-150.4-alpine.patch`; debug symbolization falls back to V8's unresolved marker. |
+| `v8-build.patch` | Partially superseded: this probe disables sysroot/download paths, uses system Rust, and uses the pinned Laputa LLVM bundle. Its Alpine system-library link additions remain under evaluation because this build must link static archives. |
+| `v8-compiler.patch` | Aarch64 musl target/runtime paths are ported; the split-threshold compiler workaround is also removed. Other architecture hunks are outside this probe. |
+| `disable-core-defaults.patch` | Already present in the workspace dependency declaration; `deno_core` selects only `reactor-tokio` and the explicit custom-libc++ feature. |
+| `v8-use-system-icu.patch` | Not applied: this probe keeps the version-matched ICU data embedded in Rusty V8 while the static ICU/link contract is established. |
+| `use-system-libs.patch` | Not applied yet: system-library selection changes SQLite, zstd, libffi, and lcms2 link inputs and must be tested as static archives, not assumed from the Alpine shared-library recipe. |
+| `unbundle-ca-certs.patch` | Not a build-portability prerequisite; deferred as a separate certificate/runtime policy decision. |
+| `cargo.lock.patch` | Not copied: it removes registry provenance for Alpine-local source overlays and downgrades psm; the current lock is for Rusty V8 150.4.0 and stacker 0.1.15. |
+| `tests-*` patches | Deferred until the native binary builds; they affect test execution and test fixtures, not the first artifact link. |
 
 ## Immediate next judge
 
@@ -106,8 +135,6 @@ validated as a static musl archive before it enters the build contract.
 
 ## Remaining porting candidates
 
-- Apply the current V8 no-`execinfo` patch to the Rusty V8 source tree if the
-  V8 compile reaches that code.
 - Port Alpine's stacker/psm changes as version-pinned Cargo registry overlays
   if stack-overflow detection fails on musl.
 - Add musl targets to Deno's `deno compile` target mapping after the native

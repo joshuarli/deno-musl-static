@@ -1,0 +1,8 @@
+--- a/cli/rt/Cargo.toml
++++ b/cli/rt/Cargo.toml
+@@ -35,1 +35,0 @@
+-v8.workspace = true
+--- a/cli/rt_desktop/Cargo.toml
++++ b/cli/rt_desktop/Cargo.toml
+@@ -26,1 +26,0 @@
+-v8.workspace = true

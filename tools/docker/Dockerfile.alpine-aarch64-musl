@@ -103,7 +103,7 @@ ENV PATH="/opt/llvm-musl/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
     CCACHE_CC="/opt/llvm-musl/bin/clang" \
     CCACHE_CXX="/opt/llvm-musl/bin/clang++" \
     CCACHE_NAMESPACE="aarch64-${LLVM_SHA256}" \
-    GN_ARGS="custom_toolchain=\"//build/toolchain/linux/unbundle:default\" host_toolchain=\"//build/toolchain/linux/unbundle:default\" v8_snapshot_toolchain=\"//build/toolchain/linux/unbundle:default\" cc_wrapper=\"/usr/bin/ccache\" clang_base_path=\"/opt/llvm-musl\" clang_version=${LLVM_MAJOR} fatal_linker_warnings=false is_debug=true symbol_level=1 use_custom_libcxx=true use_sysroot=false use_system_libffi=true rust_sysroot_absolute=\"/usr\" rust_bindgen_root=\"/usr\" v8_enable_temporal_support=false" \
+    GN_ARGS="custom_toolchain=\"//build/toolchain/linux/unbundle:default\" host_toolchain=\"//build/toolchain/linux/unbundle:default\" v8_snapshot_toolchain=\"//build/toolchain/linux/unbundle:default\" cc_wrapper=\"/usr/bin/ccache\" clang_base_path=\"/opt/llvm-musl\" clang_version=${LLVM_MAJOR} fatal_linker_warnings=false is_asan=false is_hwasan=false is_msan=false is_tsan=false is_ubsan=false is_ubsan_security=false use_sanitizer_configs_without_instrumentation=false is_debug=true symbol_level=1 use_custom_libcxx=true use_sysroot=false use_system_libffi=true rust_sysroot_absolute=\"/usr\" rust_bindgen_root=\"/usr\" v8_enable_temporal_support=false" \
     EXTRA_GN_ARGS="use_custom_libcxx=true" \
     RUSTY_V8_USE_SYSTEM_RUST=1 \
     V8_FROM_SOURCE=${V8_FROM_SOURCE} \
@@ -133,10 +133,14 @@ RUN set -eux; \
 # build needs a small downstream overlay: disable the aarch64 Debian sysroot,
 # use Alpine's target triple in GN, and use the Alpine Rust toolchain.
 RUN set -eux; \
+    patch -p1 < tools/docker/deno-static-debug.patch; \
     cargo fetch --locked; \
     v8_dir="$(find /root/.cargo/registry/src -type d -name 'v8-150.4.0' -print -quit)"; \
     test -n "${v8_dir}"; \
     patch -d "${v8_dir}" -p1 < tools/docker/rusty-v8-150.4-alpine.patch; \
+    stacker_dir="$(find /root/.cargo/registry/src -type d -name 'stacker-0.1.15' -print -quit)"; \
+    test -n "${stacker_dir}"; \
+    patch -d "${stacker_dir}" -p1 < tools/docker/stacker-0.1.15-alpine.patch; \
     icu_data_dir="$(find /root/.cargo/registry/src -type d -name 'deno_core_icudata-0.77.0' -print -quit)"; \
     test -n "${icu_data_dir}"; \
     test -f "${icu_data_dir}/src/icudtl.dat"; \

@@ -57,7 +57,50 @@
 @@ -631,1 +631,1 @@
 -      cflags += [ "-fno-lifetime-dse" ]
 +      cflags += []
+@@ -648,15 +648,0 @@
+-    # TODO(crbug.com/40283598): This causes binary size growth and potentially
+-    # other problems.
+-    if (default_toolchain != "//build/toolchain/cros:target") {
+-      cflags += [
+-        "-mllvm",
+-        "-split-threshold-for-reg-with-hint=0",
+-      ]
+-      if (use_thin_lto && is_a_target_toolchain) {
+-        if (is_win) {
+-          ldflags += [ "-mllvm:-split-threshold-for-reg-with-hint=0" ]
+-        } else {
+-          ldflags += [ "-Wl,-mllvm,-split-threshold-for-reg-with-hint=0" ]
+-        }
+-      }
+-    }
 --- a/build/config/sanitizers/sanitizers.gni
 +++ b/build/config/sanitizers/sanitizers.gni
 @@ -544,1 +544,0 @@
 -        "-fsanitize-ignore-for-ubsan-feature=${invoker.sanitizer}",
+--- a/v8/src/sandbox/testing.cc
++++ b/v8/src/sandbox/testing.cc
+@@ -47,5 +47,1 @@
+-#if defined(V8_USE_ADDRESS_SANITIZER) || defined(V8_USE_MEMORY_SANITIZER) || \
+-    defined(V8_USE_UNDEFINED_BEHAVIOR_SANITIZER)
+-#define V8_USE_ANY_SANITIZER 1
+-#include <sanitizer/common_interface_defs.h>
+-#endif
++// Alpine's no-sanitizer-trap patch removes the callbacks that used this API.
+@@ -1004,3 +1000,0 @@
+-#ifdef V8_USE_ANY_SANITIZER
+-  __sanitizer_set_death_callback(nullptr);
+-#endif  // V8_USE_ANY_SANITIZER
+@@ -1290,8 +1282,0 @@
+-#ifdef V8_USE_ANY_SANITIZER
+-  // We install sanitizer specific crash handlers. These can only check for
+-  // in-sandbox crashes on certain configurations.
+-  //
+-  // The crash handler also resets the signal handler as sanitizer may use
+-  // `abort()` via `abort_on_error=1` option to signal problems.
+-  __sanitizer_set_death_callback(&SanitizerFaultHandler);
+-#endif  // V8_USE_ANY_SANITIZER
+--- a/v8/src/codegen/external-reference-table.cc
++++ b/v8/src/codegen/external-reference-table.cc
+@@ -13,1 +13,1 @@
+-#if defined(DEBUG) && defined(V8_OS_LINUX) && !defined(V8_OS_ANDROID)
++#if defined(DEBUG) && defined(V8_OS_LINUX) && !defined(V8_OS_ANDROID) && !defined(_LIBCPP_HAS_MUSL_LIBC)
