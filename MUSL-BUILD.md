@@ -134,11 +134,12 @@ Create the persistent build volumes and run without macOS bind mounts:
 docker volume create deno-aarch64-musl-target
 docker volume create deno-aarch64-musl-ccache
 docker volume create deno-aarch64-musl-artifacts
-docker run --rm --platform linux/arm64 \
+docker create --name deno-aarch64-musl-build --platform linux/arm64 \
   --mount type=volume,source=deno-aarch64-musl-target,target=/src/deno/target \
   --mount type=volume,source=deno-aarch64-musl-ccache,target=/ccache \
   --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
   deno-alpine-aarch64-musl-probe
+docker start -a deno-aarch64-musl-build
 ```
 
 The target and ccache volumes persist across image rebuilds and can be
@@ -149,7 +150,6 @@ docker create --name deno-aarch64-musl-copy \
   --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
   alpine:latest
 docker cp deno-aarch64-musl-copy:/artifacts/deno-aarch64-unknown-linux-musl .
-docker rm deno-aarch64-musl-copy
 ```
 
 The Cargo registry is currently prepared in the image because the V8 and
@@ -162,7 +162,7 @@ QuickJS denort explicitly. `DENORT_BIN` is the development hook used by the
 standalone writer:
 
 ```sh
-docker run --rm --platform linux/arm64 \
+docker create --name deno-aarch64-musl-quickjs-smoke --platform linux/arm64 \
   --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
   alpine:latest sh -lc '
     printf "console.log(42)\\n" > /tmp/hello.ts
@@ -171,6 +171,7 @@ docker run --rm --platform linux/arm64 \
       --engine quickjs --output /tmp/hello /tmp/hello.ts
     /tmp/hello
   '
+docker start -a deno-aarch64-musl-quickjs-smoke
 ```
 
 The expected output is `42`. The generated `/tmp/hello` must then be checked
@@ -210,3 +211,91 @@ validated as a static musl archive before it enters the build contract.
   native Alpine arm64.
 - `deno compile --target=aarch64-unknown-linux-musl` produces the same static
   target contract.
+
+## Handoff: continue from here
+
+This is the current stopping point for the debug probe. The prepared image
+`deno-alpine-aarch64-musl-probe` was rebuilt successfully after applying the
+current `tools/docker/deno-static-debug.patch`. The patch makes the snapshot
+build script a no-op and enables the existing `deno_snapshots/disable` feature;
+this is a temporary debug arrangement so the V8 and QuickJS/denort graphs can
+be built independently. It is not the release snapshot design.
+
+The named Docker volumes already used by the probe are:
+
+- `deno-aarch64-musl-target`, mounted at `/src/deno/target`;
+- `deno-aarch64-musl-ccache`, mounted at `/ccache`;
+- `deno-aarch64-musl-artifacts`, mounted at `/artifacts`.
+
+The V8 `deno` debug artifact was previously built and passed the static ELF
+gate (`static-pie`, no `INTERP`, no `DT_NEEDED`); native Alpine arm64
+`deno --version` also worked. V8 `deno eval` still failed at V8's embedded-blob
+compatibility check. The QuickJS `denort` build was allowed to finish in the
+same target volume using `/src/deno/target-quickjs`, but exited 101 while
+compiling. Because that runner was ephemeral, its final compiler diagnostic was
+not retained; no QuickJS artifact or compile smoke test has been verified.
+
+Resume with these commands from the repository root:
+
+```sh
+docker create --name deno-aarch64-musl-quickjs-build --platform linux/arm64 \
+  --mount type=volume,source=deno-aarch64-musl-target,target=/src/deno/target \
+  --mount type=volume,source=deno-aarch64-musl-ccache,target=/ccache \
+  --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
+  deno-alpine-aarch64-musl-probe sh -lc '
+    export RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static"
+    CARGO_TARGET_DIR=/src/deno/target-quickjs \
+      cargo build --locked -p denort --bin denort --no-default-features --features quickjs
+    CARGO_TARGET_DIR=/src/deno/target-quickjs \
+      cargo build --locked -p deno --bin deno --no-default-features --features quickjs
+  '
+docker start -a deno-aarch64-musl-quickjs-build
+docker logs deno-aarch64-musl-quickjs-build
+```
+
+For each completed binary, inspect
+`target-quickjs/aarch64-alpine-linux-musl/debug/<binary>` with `file`,
+`readelf -lW`, and `readelf -dW`; reject any `INTERP` or `NEEDED` entry, then
+copy the verified files to `/artifacts` using these names:
+
+```text
+denort-quickjs-aarch64-unknown-linux-musl
+deno-quickjs-aarch64-unknown-linux-musl
+```
+
+Then run the smoke test:
+
+```sh
+docker create --name deno-aarch64-musl-quickjs-smoke-verified --platform linux/arm64 \
+  --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
+  alpine:latest sh -lc '
+    printf "console.log(42)\\n" > /tmp/hello.ts
+    DENORT_BIN=/artifacts/denort-quickjs-aarch64-unknown-linux-musl \
+      /artifacts/deno-quickjs-aarch64-unknown-linux-musl compile \
+      --engine quickjs --output /tmp/hello /tmp/hello.ts
+    /tmp/hello
+    file /tmp/hello
+    readelf -lW /tmp/hello
+    readelf -dW /tmp/hello
+  '
+docker start -a deno-aarch64-musl-quickjs-smoke-verified
+```
+
+Build and smoke-test containers are intentionally named and retained. Reuse
+them with `docker start -a <name>` and inspect failures with `docker logs
+<name>`; remove a container only as an explicit cleanup decision after its
+logs are no longer needed.
+
+Before relying on the shell script for repeatable iterations, update
+`tools/docker/build-alpine-aarch64-musl.sh` so QuickJS always uses
+`CARGO_TARGET_DIR=target-quickjs` while V8 uses `target`. Also invalidate the
+stacker cache in both target trees. The current script still hard-codes
+`target/`, whereas the manual QuickJS build was deliberately isolated in
+`target-quickjs/` to avoid mixing engine-specific Rust units.
+
+After the QuickJS smoke test, build and check V8 `denort`, rerun V8 `deno`, and
+record whether disabling snapshots removes the embedded-blob failure. Finally
+run the four-variant matrix, `git diff --check`, and `sh -n
+tools/docker/build-alpine-aarch64-musl.sh`. Do not call the work release-ready
+until the target mapping for `deno compile`, the generated artifact's static
+ELF properties, and a native Alpine execution test are all recorded here.
