@@ -174,9 +174,19 @@ async fn run_subcommand(
     DenoSubcommand::Deploy(deploy_flags) => spawn_subcommand(async move {
       tools::deploy::deploy(flags, deploy_flags).await
     }),
-    DenoSubcommand::Doc(doc_flags) => spawn_subcommand(async {
-      tools::doc::doc(Arc::new(flags), doc_flags).await
-    }),
+    DenoSubcommand::Doc(doc_flags) => {
+      #[cfg(feature = "doc")]
+      return spawn_subcommand(async {
+        tools::doc::doc(Arc::new(flags), doc_flags).await
+      });
+      #[cfg(not(feature = "doc"))]
+      {
+        let _ = doc_flags;
+        return Err(AnyError::msg(
+          "documentation generation is disabled in this build",
+        ));
+      }
+    }
     DenoSubcommand::Eval(eval_flags) => spawn_subcommand(async {
       tools::run::eval_command(Arc::new(flags), eval_flags).await
     }),

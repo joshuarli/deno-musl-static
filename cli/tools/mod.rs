@@ -10,6 +10,7 @@ pub mod coverage;
 pub mod deploy;
 pub mod desktop;
 pub mod desktop_devtools;
+#[cfg(feature = "doc")]
 pub mod doc;
 pub mod fmt;
 pub mod fmt_editorconfig;
