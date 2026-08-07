@@ -18,12 +18,11 @@ The probe rejects a static artifact if either `deno` or `denort` has an ELF
 interpreter or a `NEEDED` entry. It does not accept a substitute libc or a
 runtime dependency as a shipping path.
 
-The current iteration is deliberately a debug, static-only build of `deno`
-(`cargo build`, V8 `is_debug=true`, `-O0`, symbol level 1). `denort` is also in
-scope because it is the runtime used by `deno compile`, but it is explicitly
-deferred until the core `deno` build reaches a clean static link and passes the
-native Alpine smoke test. It is opt-in with `--build-arg BUILD_DENORT=1`; after
-that gate, both binaries must pass the same static ELF checks. Release
+The current iteration is deliberately a debug, static-only build (`cargo build`,
+V8 `is_debug=true`, `-O0`, symbol level 1). It builds `deno` and `denort`
+together because `denort` is the runtime used by `deno compile`. QuickJS is also
+enabled as a separate feature build so the compile path can be smoke-tested
+without depending on the unresolved debug V8 startup check. Release
 optimization remains later still.
 
 The build has already established these facts:
@@ -36,7 +35,7 @@ The build has already established these facts:
 - GN generation is reachable; the remaining work is toolchain/runtime
   integration and then the final Deno link.
 
-Latest probe result:
+Latest core probe result:
 
 - The single-graph debug build compiled V8 and reached the Deno snapshot build.
   The prior helper-link failure for `libc++abi.a` and `libunwind.a` is resolved.
@@ -50,8 +49,11 @@ Latest probe result:
   snapshot build, but reused an unpatched stacker artifact from the persistent
   Cargo target cache; the Docker setup now invalidates only stacker's
   fingerprints and build products after applying the overlay.
-- No final `deno` ELF has been produced yet, so no artifact is considered
-  buildable.
+- The core `deno` debug binary is an aarch64 static PIE with no ELF interpreter
+  or `DT_NEEDED` entry and `deno --version` runs in native Alpine arm64.
+- `deno eval` still reaches V8's debug embedded-blob compatibility check. This
+  is tracked separately from the static link gate; the next runtime smoke path
+  is QuickJS while the V8 configuration is isolated and fixed.
 
 ## Ported changes
 
@@ -79,11 +81,15 @@ Latest probe result:
   `deno-aarch64-musl-ccache` at `/ccache`, and
   `deno-aarch64-musl-artifacts` at `/artifacts`. This avoids macOS bind mounts
   for all build outputs and keeps the Rust target cache inspectable and reusable.
-- The debug probe applies `tools/docker/deno-static-debug.patch` only when
-  `BUILD_DENORT=0`. It removes the unused host-side build dependency graph and
-  makes the `denort`-only linker-flag build script a no-op; the normal target
-  V8 dependency remains unchanged. This keeps the first Deno binary iteration
-  from compiling a second host V8.
+- The debug probe applies `tools/docker/deno-static-debug.patch` for the musl
+  build regardless of engine. It removes denort's build-only dependency graph
+  and makes its linker-flag build script a no-op, allowing the V8 and QuickJS
+  denort feature sets to remain separate while the target binary owns the
+  static link.
+- The runtime builder exports four distinct artifacts when both switches are
+  enabled: `deno-aarch64-unknown-linux-musl`,
+  `denort-aarch64-unknown-linux-musl`, `deno-quickjs-aarch64-unknown-linux-musl`,
+  and `denort-quickjs-aarch64-unknown-linux-musl`.
 
 ## Alpine Deno patch reconciliation
 
@@ -100,7 +106,7 @@ behavior rather than applying old patches by filename.
 | `v8-build.patch` | Partially superseded: this probe disables sysroot/download paths, uses system Rust, and uses the pinned Laputa LLVM bundle. Its Alpine system-library link additions remain under evaluation because this build must link static archives. |
 | `v8-compiler.patch` | Aarch64 musl target/runtime paths are ported; the split-threshold compiler workaround is also removed. Other architecture hunks are outside this probe. |
 | `disable-core-defaults.patch` | Already present in the workspace dependency declaration; `deno_core` selects only `reactor-tokio` and the explicit custom-libc++ feature. |
-| `deno-static-debug.patch` | Local `BUILD_DENORT=0` iteration overlay: removes the unused host-side V8 graph and skips `denort`-only linker-flag generation so the probe builds V8 once for the target. |
+| `deno-static-debug.patch` | Local static-build overlay: removes denort's build-only dependency graph and skips denort-only linker-flag generation so V8 and QuickJS feature builds do not pull an extra host graph. |
 | `v8-use-system-icu.patch` | Not applied: this probe keeps the version-matched ICU data embedded in Rusty V8 while the static ICU/link contract is established. |
 | `use-system-libs.patch` | Not applied yet: system-library selection changes SQLite, zstd, libffi, and lcms2 link inputs and must be tested as static archives, not assumed from the Alpine shared-library recipe. |
 | `unbundle-ca-certs.patch` | Not a build-portability prerequisite; deferred as a separate certificate/runtime policy decision. |
@@ -115,7 +121,8 @@ target and ccache data can live in named Docker volumes:
 ```sh
 docker buildx build --platform linux/arm64 --progress=plain \
   --build-arg V8_FROM_SOURCE=1 \
-  --build-arg BUILD_DENORT=0 \
+  --build-arg BUILD_DENORT=1 \
+  --build-arg BUILD_QUICKJS=1 \
   -t deno-alpine-aarch64-musl-probe \
   -f tools/docker/Dockerfile.alpine-aarch64-musl \
   --load .
@@ -150,6 +157,26 @@ stacker source overlays are applied there. The named `target/` volume is the
 important incremental Rust state; a separately seeded registry volume can be
 added once the dependency overlay lifecycle is stable.
 
+To smoke-test the compile path with the QuickJS runtime, use the matching
+QuickJS denort explicitly. `DENORT_BIN` is the development hook used by the
+standalone writer:
+
+```sh
+docker run --rm --platform linux/arm64 \
+  --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
+  alpine:latest sh -lc '
+    printf "console.log(42)\\n" > /tmp/hello.ts
+    DENORT_BIN=/artifacts/denort-quickjs-aarch64-unknown-linux-musl \
+      /artifacts/deno-quickjs-aarch64-unknown-linux-musl compile \
+      --engine quickjs --output /tmp/hello /tmp/hello.ts
+    /tmp/hello
+  '
+```
+
+The expected output is `42`. The generated `/tmp/hello` must then be checked
+with the same `readelf` static-ELF gate before treating QuickJS `deno compile`
+as complete.
+
 The next failure should be classified at the narrowest layer:
 
 1. GN configuration and target triples.
@@ -167,6 +194,8 @@ validated as a static musl archive before it enters the build contract.
 - Validate the version-pinned stacker/psm overlays with the native snapshot
   build; the stacker overlay is present, but its cached artifact must be
   rebuilt after patching.
+- Validate the four-artifact build matrix and the QuickJS `deno compile` smoke
+  path using the matching `DENORT_BIN`.
 - Add musl targets to Deno's `deno compile` target mapping after the native
   binary itself links successfully.
 - Add focused artifact and target-mapping tests before treating the build as
@@ -177,7 +206,7 @@ validated as a static musl archive before it enters the build contract.
 - `deno` and `denort` are arm64 ELF executables.
 - Neither has an ELF interpreter or `DT_NEEDED` entry.
 - No compiler, linker, or runtime dependency selects another libc.
-- `deno --version` and a minimal JavaScript execution pass in native Alpine
-  arm64.
+- `deno --version` and a minimal QuickJS-backed JavaScript execution pass in
+  native Alpine arm64.
 - `deno compile --target=aarch64-unknown-linux-musl` produces the same static
   target contract.

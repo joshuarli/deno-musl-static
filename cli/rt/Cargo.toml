@@ -26,8 +26,8 @@ harness = false
 
 [features]
 default = ["v8"]
-quickjs = ["deno_core/quickjs", "v8/quickjs"]
-v8 = ["deno_core/v8", "v8/v8"]
+quickjs = ["deno_core/quickjs", "deno_v8_backend/quickjs"]
+v8 = ["deno_core/v8", "deno_v8_backend/v8"]
 
 [build-dependencies]
 deno_runtime.workspace = true
@@ -37,6 +37,7 @@ v8.workspace = true
 [dependencies]
 async-trait.workspace = true
 bincode.workspace = true
+deno_v8_backend = { package = "deno_v8", version = "0.2.0", path = "../../libs/deno_v8", default-features = false, features = ["simdutf"] }
 deno_ast = { workspace = true, features = ["cjs"] }
 deno_cache_dir = { workspace = true, features = ["sync"] }
 deno_config = { workspace = true, features = ["sync", "workspace"] }
@@ -68,7 +69,6 @@ sys_traits = { workspace = true, features = ["getrandom", "filetime", "libc", "r
 thiserror.workspace = true
 tokio.workspace = true
 url.workspace = true
-v8.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 junction.workspace = true

@@ -25,3 +25,26 @@
 -deno_runtime.workspace = true
 -deno_core.workspace = true
 -v8.workspace = true
+--- a/runtime/Cargo.toml
++++ b/runtime/Cargo.toml
+@@ -12,3 +12,4 @@
+ [features]
++v8 = ["deno_core/v8"]
+ # "fake" feature that allows to generate docs on docs.rs
+ docsrs = []
+--- a/cli/snapshot/Cargo.toml
++++ b/cli/snapshot/Cargo.toml
+@@ -19,2 +19,2 @@
+ [build-dependencies]
+-deno_runtime = { workspace = true, features = ["snapshot"] }
++deno_runtime = { workspace = true, features = ["snapshot", "v8"] }
+--- a/cli/Cargo.toml
++++ b/cli/Cargo.toml
+@@ -94 +94 @@
+-deno_snapshots.workspace = true
++deno_snapshots = { workspace = true, features = ["disable"] }
+--- a/cli/rt/Cargo.toml
++++ b/cli/rt/Cargo.toml
+@@ -56 +56 @@
+-deno_snapshots.workspace = true
++deno_snapshots = { workspace = true, features = ["disable"] }
