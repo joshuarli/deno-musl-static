@@ -252,6 +252,12 @@ denort-quickjs-aarch64-unknown-linux-musl
 deno-quickjs-aarch64-unknown-linux-musl
 ```
 
+The manual `.github/workflows/build.yml` runs the release target on
+`ubuntu-24.04-arm`, then publishes both uncompressed artifacts in the
+prerelease named `deno-<GITHUB_SHA>-linux-aarch64-musl-static`. The pi workflow
+accepts that full Deno SHA and downloads these assets directly instead of
+rebuilding Deno as part of the pi image build.
+
 The optimized `release-quickjs` gate is complete for the scoped QuickJS artifacts. The
 release `deno` and matching `denort` were then used to build `pi-deno` from
 `/Users/josh/d/pi` with `Dockerfile.deno`. That integration build passed in a

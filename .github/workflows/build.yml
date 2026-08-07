@@ -1,0 +1,65 @@
+name: Build static musl Deno
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+
+    steps:
+      - name: Build and publish the uncompressed QuickJS artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          work_dir="$RUNNER_TEMP/deno-musl-build"
+          source_dir="$work_dir/source"
+          artifact_dir="$work_dir/artifact"
+          image="deno-musl-static:${GITHUB_RUN_ID}"
+          target_volume="deno-musl-static-${GITHUB_RUN_ID}-target"
+          quickjs_target_volume="deno-musl-static-${GITHUB_RUN_ID}-quickjs-target"
+          ccache_volume="deno-musl-static-${GITHUB_RUN_ID}-ccache"
+          artifact_volume="deno-musl-static-${GITHUB_RUN_ID}-artifacts"
+
+          mkdir -p "$work_dir" "$artifact_dir"
+          trap 'docker volume rm "$target_volume" "$quickjs_target_volume" "$ccache_volume" "$artifact_volume" >/dev/null 2>&1 || true' EXIT
+
+          git init "$source_dir"
+          git -C "$source_dir" remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -C "$source_dir" -c "http.extraheader=AUTHORIZATION: bearer $GH_TOKEN" \
+            fetch --depth=1 origin "$GITHUB_SHA"
+          git -C "$source_dir" checkout --detach FETCH_HEAD
+
+          cd "$source_dir"
+          make musl-quickjs-release \
+            MUSL_IMAGE="$image" \
+            MUSL_TARGET_VOLUME="$target_volume" \
+            MUSL_QUICKJS_TARGET_VOLUME="$quickjs_target_volume" \
+            MUSL_CCACHE_VOLUME="$ccache_volume" \
+            MUSL_ARTIFACT_VOLUME="$artifact_volume" \
+            MUSL_ARTIFACT_DIR="$artifact_dir"
+          make musl-quickjs-smoke \
+            MUSL_ARTIFACT_DIR="$artifact_dir"
+
+          release_name="deno-${GITHUB_SHA}-linux-aarch64-musl-static"
+          deno_artifact="$artifact_dir/deno-quickjs-aarch64-unknown-linux-musl"
+          denort_artifact="$artifact_dir/denort-quickjs-aarch64-unknown-linux-musl"
+          test -x "$deno_artifact"
+          test -x "$denort_artifact"
+          file "$deno_artifact" "$denort_artifact"
+
+          gh release create "$release_name" \
+            "$deno_artifact" \
+            "$denort_artifact" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$release_name" \
+            --notes "Static aarch64 musl QuickJS Deno compiler and matching denort built from $GITHUB_SHA." \
+            --prerelease
