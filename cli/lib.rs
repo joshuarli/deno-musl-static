@@ -9,6 +9,7 @@ mod graph_container;
 mod graph_util;
 mod http_util;
 mod jsr;
+#[cfg(feature = "lsp")]
 mod lsp;
 mod module_loader;
 mod node;
@@ -34,6 +35,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::env;
 use std::future::Future;
+#[cfg(feature = "lsp")]
 use std::io::IsTerminal;
 use std::io::Write as _;
 use std::ops::Deref;
@@ -260,9 +262,11 @@ async fn run_subcommand(
     DenoSubcommand::Uninstall(uninstall_flags) => spawn_subcommand(async {
       tools::installer::uninstall(Arc::new(flags), uninstall_flags).await
     }),
-    DenoSubcommand::Lsp => spawn_subcommand(async move {
-      if std::io::stderr().is_terminal() {
-        log::warn!(
+    DenoSubcommand::Lsp => {
+      #[cfg(feature = "lsp")]
+      return spawn_subcommand(async move {
+        if std::io::stderr().is_terminal() {
+          log::warn!(
           "{} command is intended to be run by text editors and IDEs and shouldn't be run manually.
 
   Visit https://docs.deno.com/runtime/getting_started/setup_your_environment/ for instruction
@@ -270,20 +274,31 @@ async fn run_subcommand(
 
   Press Ctrl+C to exit.
         ", colors::cyan("deno lsp"));
+        }
+        lsp::start().await
+      });
+      #[cfg(not(feature = "lsp"))]
+      return Err(AnyError::msg("the LSP is disabled in this build"));
+    }
+    DenoSubcommand::Lint(lint_flags) => {
+      #[cfg(feature = "lint")]
+      return spawn_subcommand(async {
+        if lint_flags.rules {
+          tools::lint::print_rules_list(
+            lint_flags.json,
+            lint_flags.maybe_rules_tags,
+          );
+          Ok(())
+        } else {
+          tools::lint::lint(Arc::new(flags), lint_flags).await
+        }
+      });
+      #[cfg(not(feature = "lint"))]
+      {
+        let _ = lint_flags;
+        return Err(AnyError::msg("linting is disabled in this build"));
       }
-      lsp::start().await
-    }),
-    DenoSubcommand::Lint(lint_flags) => spawn_subcommand(async {
-      if lint_flags.rules {
-        tools::lint::print_rules_list(
-          lint_flags.json,
-          lint_flags.maybe_rules_tags,
-        );
-        Ok(())
-      } else {
-        tools::lint::lint(Arc::new(flags), lint_flags).await
-      }
-    }),
+    }
     DenoSubcommand::Outdated(update_flags) => spawn_subcommand(async move {
       tools::pm::outdated(Arc::new(flags), update_flags).await
     }),

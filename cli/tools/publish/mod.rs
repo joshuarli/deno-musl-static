@@ -51,6 +51,7 @@ use crate::graph_util::CreatePublishGraphOptions;
 use crate::graph_util::ModuleGraphCreator;
 use crate::http_util::HttpClient;
 use crate::registry;
+#[cfg(feature = "lint")]
 use crate::tools::lint::collect_no_slow_type_diagnostics;
 use crate::type_checker::CheckOptions;
 use crate::type_checker::TypeChecker;
@@ -428,14 +429,17 @@ impl PublishPreparer {
       bail!("Exiting due to DENO_INTERNAL_FAST_CHECK_OVERWRITE")
     } else {
       log::info!("Checking for slow types in the public API...");
-      for package in package_configs {
-        let export_urls = package.config_file.resolve_export_value_urls()?;
-        let diagnostics =
-          collect_no_slow_type_diagnostics(&graph, &export_urls);
-        if !diagnostics.is_empty() {
-          for diagnostic in diagnostics {
-            diagnostics_collector
-              .push(PublishDiagnostic::FastCheck(diagnostic));
+      #[cfg(feature = "lint")]
+      {
+        for package in package_configs {
+          let export_urls = package.config_file.resolve_export_value_urls()?;
+          let diagnostics =
+            collect_no_slow_type_diagnostics(&graph, &export_urls);
+          if !diagnostics.is_empty() {
+            for diagnostic in diagnostics {
+              diagnostics_collector
+                .push(PublishDiagnostic::FastCheck(diagnostic));
+            }
           }
         }
       }

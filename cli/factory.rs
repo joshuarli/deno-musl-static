@@ -107,6 +107,7 @@ use crate::resolver::on_resolve_diagnostic;
 use crate::standalone::binary::DenoCompileBinaryWriter;
 use crate::sys::CliSys;
 use crate::tools::installer::BinNameResolver;
+#[cfg(feature = "lint")]
 use crate::tools::lint::LintRuleProvider;
 use crate::tools::run::hmr::HmrRunnerState;
 use crate::tsc::TypeCheckingCjsTracker;
@@ -852,6 +853,7 @@ impl CliFactory {
     self.resolver_factory()?.emitter()
   }
 
+  #[cfg(feature = "lint")]
   pub async fn lint_rule_provider(&self) -> Result<LintRuleProvider, AnyError> {
     Ok(LintRuleProvider::new(Some(
       self.workspace_resolver().await?.clone(),

@@ -772,6 +772,7 @@ async fn configure_main_worker(
       permissions_container,
       vec![
         ops::testing::deno_test::init(worker_sender.sender),
+        #[cfg(feature = "lint")]
         ops::lint::deno_lint_ext_for_test::init(),
         ops::jupyter::deno_jupyter_for_test::init(
           sender,

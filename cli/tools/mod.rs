@@ -18,6 +18,7 @@ pub mod info;
 pub mod init;
 pub mod installer;
 pub mod jupyter;
+#[cfg(feature = "lint")]
 pub mod lint;
 pub mod pack;
 pub mod pm;

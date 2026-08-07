@@ -3,5 +3,6 @@
 pub mod bench;
 pub mod deploy;
 pub mod jupyter;
+#[cfg(feature = "lint")]
 pub mod lint;
 pub mod testing;
