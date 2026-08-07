@@ -31,6 +31,7 @@ pub fn get_extensions_in_snapshot() -> Vec<Extension> {
     deno_ffi::deno_ffi::init(None),
     deno_net::deno_net::init(None, None),
     deno_tls::deno_tls::init(),
+    #[cfg(feature = "kv")]
     deno_kv::deno_kv::init(
       Box::new(deno_kv::sqlite::SqliteDbHandler::new(None, None)),
       deno_kv::KvConfig::builder().build(),

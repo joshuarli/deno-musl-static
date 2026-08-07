@@ -48,6 +48,7 @@ pub fn runtime_extensions(
     deno_ffi::deno_ffi::lazy_init(),
     deno_net::deno_net::lazy_init(),
     deno_tls::deno_tls::lazy_init(),
+    #[cfg(feature = "kv")]
     deno_kv::deno_kv::lazy_init(),
     deno_cron::deno_cron::init(Box::new(
       deno_cron::local::LocalCronHandler::new(),

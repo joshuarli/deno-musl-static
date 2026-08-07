@@ -14,6 +14,7 @@ pub use deno_http;
 pub use deno_image;
 pub use deno_inspector_server;
 pub use deno_io;
+#[cfg(feature = "kv")]
 pub use deno_kv;
 pub use deno_napi;
 pub use deno_net;

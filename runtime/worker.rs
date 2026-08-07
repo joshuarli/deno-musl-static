@@ -39,6 +39,7 @@ use deno_cron::CronHandlerImpl;
 use deno_error::JsErrorBox;
 use deno_fs::FileSystem;
 use deno_io::Stdio;
+#[cfg(feature = "kv")]
 use deno_kv::dynamic::MultiBackendDbHandler;
 use deno_napi::DenoRtNativeAddonLoaderRc;
 use deno_node::ExtNodeSys;
@@ -47,6 +48,7 @@ use deno_os::ExitCode;
 use deno_permissions::PermissionsContainer;
 use deno_process::NpmProcessStateProviderRc;
 use deno_tls::RootCertStoreProvider;
+#[cfg(feature = "kv")]
 use deno_tls::TlsKeys;
 use deno_web::BlobStoreTrait;
 use deno_web::InMemoryBroadcastChannel;
@@ -639,6 +641,7 @@ impl MainWorker {
           services.root_cert_store_provider.clone(),
           options.unsafely_ignore_certificate_errors.clone(),
         ),
+        #[cfg(feature = "kv")]
         deno_kv::deno_kv::args(
           Box::new(MultiBackendDbHandler::remote_or_sqlite(
             options.origin_storage_dir.clone(),
@@ -1223,6 +1226,7 @@ fn common_extensions<
     deno_ffi::deno_ffi::lazy_init(),
     deno_net::deno_net::lazy_init(),
     deno_tls::deno_tls::init(),
+    #[cfg(feature = "kv")]
     deno_kv::deno_kv::lazy_init(),
     deno_cron::deno_cron::init(Box::new(CronHandlerImpl::create_from_env())),
     deno_napi::deno_napi::lazy_init(),

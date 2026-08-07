@@ -18,7 +18,7 @@ crate-type = ["cdylib"]
 [features]
 default = ["v8"]
 quickjs = ["deno_core/quickjs", "denort/quickjs", "v8/quickjs"]
-v8 = ["deno_core/v8", "denort/v8", "deno_runtime/webgpu", "v8/v8"]
+v8 = ["deno_core/v8", "denort/v8", "deno_runtime/kv", "deno_runtime/webgpu", "v8/v8"]
 
 [build-dependencies]
 deno_runtime = { workspace = true, default-features = false }

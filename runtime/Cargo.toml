@@ -24,6 +24,7 @@ snapshot_files = ["transpile"]
 quickjs = ["deno_core/quickjs"]
 transpile = ["deno_ast"]
 image = ["dep:deno_image"]
+kv = ["dep:deno_kv"]
 webgpu = ["dep:deno_canvas", "dep:deno_webgpu", "image", "deno_image/webgpu"]
 
 [lints.rust]
@@ -54,7 +55,7 @@ deno_http.workspace = true
 deno_image = { workspace = true, optional = true }
 deno_inspector_server.workspace = true
 deno_io.workspace = true
-deno_kv.workspace = true
+deno_kv = { workspace = true, optional = true }
 deno_napi.workspace = true
 deno_net.workspace = true
 deno_node.workspace = true
