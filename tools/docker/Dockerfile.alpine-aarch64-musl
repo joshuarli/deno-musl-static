@@ -153,6 +153,10 @@ RUN set -eux; \
 RUN --mount=type=cache,id=deno-aarch64-musl-target,target=/src/deno/target \
     --mount=type=cache,id=deno-aarch64-musl-ccache,target=/ccache \
     set -eux; \
+    if [ -d target ]; then \
+      find target -type d -name 'stacker-*' -prune -exec rm -rf '{}' +; \
+      find target -type f \( -name 'libstacker-*' -o -name 'stacker-*' \) -delete; \
+    fi; \
     RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static" \
       cargo build --locked -p deno --bin deno; \
     if [ "${BUILD_DENORT}" = 1 ]; then \

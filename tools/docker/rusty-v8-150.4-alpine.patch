@@ -104,3 +104,10 @@
 @@ -13,1 +13,1 @@
 -#if defined(DEBUG) && defined(V8_OS_LINUX) && !defined(V8_OS_ANDROID)
 +#if defined(DEBUG) && defined(V8_OS_LINUX) && !defined(V8_OS_ANDROID) && !defined(_LIBCPP_HAS_MUSL_LIBC)
+--- a/v8/src/execution/isolate.cc
++++ b/v8/src/execution/isolate.cc
+@@ -6476,1 +6476,4 @@
+   if (!IsolateIsCompatibleWithEmbeddedBlob(this)) {
++    const EmbeddedData embedded = EmbeddedData::FromBlob(this);
++    fprintf(stderr, "V8 embedded blob hashes: blob=%zx isolate=%zx\\n",
++            embedded.IsolateHash(), HashIsolateForEmbeddedBlob());

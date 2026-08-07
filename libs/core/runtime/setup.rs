@@ -176,6 +176,14 @@ fn v8_init(
     // `queueMicrotask` in `01_core.js`.
     " --enable-queue-microtask"
   );
+  // Rusty V8's debug mksnapshot action enables these two code-generation
+  // flags. Keep the debug musl runtime aligned with that embedded blob so
+  // V8's DEBUG-only isolate compatibility check can validate the snapshot.
+  #[cfg(all(target_os = "linux", target_env = "musl", debug_assertions))]
+  let snapshot_flags = "--predictable --random-seed=42 \
+    --turbo-instruction-scheduling --turbo-always-optimize-spills \
+    --no-use-ic --native-code-counters";
+  #[cfg(not(all(target_os = "linux", target_env = "musl", debug_assertions)))]
   let snapshot_flags = "--predictable --random-seed=42";
   let expose_natives_flags = "--expose_gc --allow_natives_syntax";
   let lazy_flags = if cfg!(feature = "snapshot_flags_eager_parse") {

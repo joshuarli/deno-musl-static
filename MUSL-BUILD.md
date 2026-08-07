@@ -19,9 +19,12 @@ interpreter or a `NEEDED` entry. It does not accept a substitute libc or a
 runtime dependency as a shipping path.
 
 The current iteration is deliberately a debug, static-only build of `deno`
-(`cargo build`, V8 `is_debug=true`, `-O0`, symbol level 1). `denort` is opt-in
-with `--build-arg BUILD_DENORT=1`; release optimization and the second binary
-come after this faster feedback loop reaches a clean link.
+(`cargo build`, V8 `is_debug=true`, `-O0`, symbol level 1). `denort` is also in
+scope because it is the runtime used by `deno compile`, but it is explicitly
+deferred until the core `deno` build reaches a clean static link and passes the
+native Alpine smoke test. It is opt-in with `--build-arg BUILD_DENORT=1`; after
+that gate, both binaries must pass the same static ELF checks. Release
+optimization remains later still.
 
 The build has already established these facts:
 
@@ -35,17 +38,17 @@ The build has already established these facts:
 
 Latest probe result:
 
-- The debug V8 action graph reached 360 of 687 compile actions in its current
-  target graph. The Clang-22 flag overlay and static archive search path were
-  applied, and the prior helper-link failure for `libc++abi.a` and
-  `libunwind.a` is resolved.
+- The single-graph debug build compiled V8 and reached the Deno snapshot build.
+  The prior helper-link failure for `libc++abi.a` and `libunwind.a` is resolved.
 - ccache is active: generated V8 commands invoke `/usr/bin/ccache` before the
   pinned LLVM compiler, and BuildKit persists its `/ccache` cache mount.
 - The sanitizer callback overlay now handles V8's trap-only hardening without
   adding sanitizer headers or runtimes.
-- The run next stopped at V8's debug-only `execinfo.h` include. The source
-  overlay now limits that optional symbolization helper to environments that
-  provide it; the next run will test the remaining V8 and Deno graph.
+- The V8 debug-only `execinfo.h` include and the stacker stack-pointer
+  underflow are now covered by source overlays. The latest run reached the
+  snapshot build, but reused an unpatched stacker artifact from the persistent
+  Cargo target cache; the Docker setup now invalidates only stacker's
+  fingerprints and build products after applying the overlay.
 - No final `deno` ELF has been produced yet, so no artifact is considered
   buildable.
 
@@ -141,8 +144,9 @@ validated as a static musl archive before it enters the build contract.
 
 ## Remaining porting candidates
 
-- Port Alpine's stacker/psm changes as version-pinned Cargo registry overlays
-  if stack-overflow detection fails on musl.
+- Validate the version-pinned stacker/psm overlays with the native snapshot
+  build; the stacker overlay is present, but its cached artifact must be
+  rebuilt after patching.
 - Add musl targets to Deno's `deno compile` target mapping after the native
   binary itself links successfully.
 - Add focused artifact and target-mapping tests before treating the build as
