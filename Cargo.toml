@@ -482,7 +482,8 @@ incremental = false
 lto = "thin"
 opt-level = 'z' # Optimize for size
 split-debuginfo = "packed"
-debug = "line-tables-only"
+debug = 0
+strip = "symbols"
 panic = "abort"
 
 # NB: the `bench` and `release` profiles must remain EXACTLY the same.
@@ -491,7 +492,8 @@ incremental = false
 lto = "thin"
 opt-level = 'z' # Optimize for size
 split-debuginfo = "packed"
-debug = "line-tables-only"
+debug = 0
+strip = "symbols"
 panic = "abort"
 
 [profile.bench.package.deno_npm]
@@ -501,6 +503,7 @@ opt-level = 3
 [profile.release-with-debug]
 inherits = "release-lite"
 debug = true
+strip = "none"
 
 # Faster to compile than `release` but with similar performance.
 [profile.release-lite]
@@ -510,6 +513,8 @@ inherits = "release"
 incremental = true
 codegen-units = 128
 lto = "thin"
+debug = "line-tables-only"
+strip = "none"
 
 [profile.release-lite.package.deno_npm]
 opt-level = 3

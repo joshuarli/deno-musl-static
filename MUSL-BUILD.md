@@ -58,9 +58,13 @@ Latest core probe result:
   `deno_cli_tsc` extension is V8-specific. V8 compile behavior is unchanged.
 - The optimized release profile now uses thin LTO with Cargo's default release
   codegen parallelism; it no longer uses the single-codegen-unit fat-LTO setup.
-- The release artifacts passed the same static gate and native Alpine smoke:
-  `deno` is 248,022,488 bytes and `denort` is 164,881,856 bytes. A release
-  `deno compile --engine quickjs` output executed and printed `42`.
+- Release and bench now set `debug = 0` and `strip = "symbols"`, so release
+  artifacts do not generate or carry debug information. `release-lite` and
+  `release-with-debug` explicitly restore their diagnostic symbols.
+- A stripped release pair measured about 78 MiB for `deno` and 50 MiB for
+  `denort` in native Alpine arm64. The pair passed the same static gate and
+  native smoke; a release `deno compile --engine quickjs` output executed and
+  printed `42`.
 
 ## Ported changes
 

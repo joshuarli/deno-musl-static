@@ -42,6 +42,13 @@ build_binary() {
     --no-default-features --features quickjs
 
   path="target-quickjs/${RUST_TARGET}/${PROFILE_DIR}/${package}"
+  if [ "${BUILD_PROFILE}" = release ]; then
+    # The release profile does not emit debug info and asks Cargo to strip
+    # symbols. Keep this final artifact-level strip as a defense for custom
+    # target/linker behavior; deno compile embeds denort, so any retained
+    # symbols would multiply into every generated executable.
+    strip --strip-all "${path}"
+  fi
   file "${path}"
   readelf -lW "${path}"
   readelf -dW "${path}" || true
