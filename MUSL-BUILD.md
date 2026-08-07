@@ -222,93 +222,31 @@ validated as a static musl archive before it enters the build contract.
 - `deno compile --target=aarch64-unknown-linux-musl` produces the same static
   target contract.
 
-## Debug and release build commands
+## Repeatable build workflows
 
-The prepared image `deno-alpine-aarch64-musl-probe` builds only the scoped
-QuickJS artifacts. `BUILD_PROFILE=debug` is the supported debug pathway;
-`BUILD_PROFILE=release` selects Cargo release optimization and
-`is_debug=false`/symbol level 0 for the native engine configuration. The
-QuickJS source embedding and no-V8-snapshot path are engine-specific; V8's
-normal snapshot feature remains available outside this scoped build.
+The root `Makefile` is the executable contract for the native Docker workflows:
 
-The named Docker volumes are:
+- `make musl-quickjs-debug` builds the symbol-bearing debug pair.
+- `make musl-quickjs-debug-smoke` builds it and runs the Alpine arm64 smoke.
+- `make musl-quickjs-release` builds the ThinLTO, opt-level 3
+  `release-quickjs` pair.
+- `make musl-quickjs-release-smoke` builds it and runs the static compile and
+  execution smoke.
 
-- `deno-aarch64-musl-target`, mounted at `/src/deno/target`;
-- `deno-aarch64-musl-quickjs-target`, mounted at `/src/deno/target-quickjs`;
-- `deno-aarch64-musl-ccache`, mounted at `/ccache`;
-- `deno-aarch64-musl-artifacts`, mounted at `/artifacts`.
+The Makefile owns the image arguments, named Cargo/ccache/artifact volumes,
+artifact export directory, ELF checks, and native Alpine smoke. The Docker
+image and `tools/docker/build-alpine-aarch64-musl.sh` remain implementation
+details behind those targets. Eager QuickJS extension sources are embedded, so
+the smoke container does not need the build-time source tree.
 
-Run the debug build from the repository root:
-
-```sh
-docker create --name deno-aarch64-musl-quickjs-build --platform linux/arm64 \
-  --mount type=volume,source=deno-aarch64-musl-target,target=/src/deno/target \
-  --mount type=volume,source=deno-aarch64-musl-quickjs-target,target=/src/deno/target-quickjs \
-  --mount type=volume,source=deno-aarch64-musl-ccache,target=/ccache \
-  --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
-  deno-alpine-aarch64-musl-probe sh -c '/usr/local/bin/build-alpine-aarch64-musl'
-docker start -a deno-aarch64-musl-quickjs-build
-```
-
-The builder inspects each binary and copies the verified files to `/artifacts`
-as:
+The builder exports only:
 
 ```text
 denort-quickjs-aarch64-unknown-linux-musl
 deno-quickjs-aarch64-unknown-linux-musl
 ```
 
-Then run the native debug smoke test. Eager QuickJS extension sources are
-embedded, so the execution container does not need the build-time source tree.
-
-```sh
-docker create --name deno-aarch64-musl-quickjs-smoke-verified --platform linux/arm64 \
-  --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
-  alpine:latest sh -c '
-    printf "console.log(42)\\n" > /tmp/hello.ts
-    DENORT_BIN=/artifacts/denort-quickjs-aarch64-unknown-linux-musl \
-      /artifacts/deno-quickjs-aarch64-unknown-linux-musl compile \
-      --engine quickjs --output /tmp/hello /tmp/hello.ts
-    /tmp/hello
-    file /tmp/hello
-    readelf -lW /tmp/hello
-    readelf -dW /tmp/hello
-  '
-docker start -a deno-aarch64-musl-quickjs-smoke-verified
-```
-
-For the optimized release build, rebuild the image with release settings and
-run the same builder command:
-
-```sh
-docker build --platform linux/arm64 \
-  --build-arg BUILD_PROFILE=release \
-  --build-arg V8_DEBUG=false \
-  --build-arg V8_SYMBOL_LEVEL=0 \
-  -t deno-alpine-aarch64-musl-release \
-  -f tools/docker/Dockerfile.alpine-aarch64-musl .
-docker create --name deno-aarch64-musl-quickjs-release-build \
-  --platform linux/arm64 \
-  --mount type=volume,source=deno-aarch64-musl-target,target=/src/deno/target \
-  --mount type=volume,source=deno-aarch64-musl-quickjs-target,target=/src/deno/target-quickjs \
-  --mount type=volume,source=deno-aarch64-musl-ccache,target=/ccache \
-  --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
-  deno-alpine-aarch64-musl-release sh -c \
-  '/usr/local/bin/build-alpine-aarch64-musl'
-docker start -a deno-aarch64-musl-quickjs-release-build
-```
-
-Build and smoke-test containers are intentionally named and retained. Reuse
-them with `docker start -a <name>` and inspect failures with `docker logs
-<name>`; remove a container only as an explicit cleanup decision after its
-logs are no longer needed.
-
-`tools/docker/build-alpine-aarch64-musl.sh` uses `target-quickjs`, supports
-debug and release profiles, invalidates the stacker cache, and exports only the
-two QuickJS artifacts. Keep the target volume separate from host Cargo output;
-`.dockerignore` excludes local target trees from the image context.
-
-The optimized release gate is complete for the scoped QuickJS artifacts. The
+The optimized `release-quickjs` gate is complete for the scoped QuickJS artifacts. The
 release `deno` and matching `denort` were then used to build `pi-deno` from
 `/Users/josh/d/pi` with `Dockerfile.deno`. That integration build passed in a
 native Alpine arm64 container: `pi --version`, `pi --help`, the static ELF

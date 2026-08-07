@@ -23,6 +23,7 @@ use clap::ColorChoice;
 use clap::Command;
 use clap::ValueHint;
 use clap::builder::FalseyValueParser;
+use clap::builder::PossibleValuesParser;
 use clap::builder::styling::AnsiColor;
 use clap::error::ErrorKind;
 use clap::value_parser;
@@ -53,6 +54,22 @@ use deno_npm::NpmSystemInfo;
 use deno_npm_installer::PackagesAllowedScripts;
 use deno_path_util::normalize_path;
 use deno_path_util::resolve_url_or_path;
+
+#[cfg(feature = "quickjs")]
+const JAVASCRIPT_ENGINE_VALUES: &[&str] = &["quickjs"];
+#[cfg(not(feature = "quickjs"))]
+const JAVASCRIPT_ENGINE_VALUES: &[&str] = &["v8", "quickjs"];
+
+fn default_javascript_engine() -> JavaScriptEngine {
+  #[cfg(feature = "quickjs")]
+  {
+    JavaScriptEngine::QuickJs
+  }
+  #[cfg(not(feature = "quickjs"))]
+  {
+    JavaScriptEngine::default()
+  }
+}
 use deno_path_util::url_to_file_path;
 use deno_runtime::UnstableFeatureKind;
 pub use deno_runtime::deno_inspector_server::InspectPublishUid;
@@ -2441,7 +2458,7 @@ On the first invocation of `deno compile`, Deno will download the relevant binar
         Arg::new("engine")
           .long("engine")
           .help(cstr!("JS engine the compiled binary runs on <p(245)>(quickjs is smaller and experimental, and does not receive the same security updates as v8)</>"))
-          .value_parser(["v8", "quickjs"])
+          .value_parser(PossibleValuesParser::new(JAVASCRIPT_ENGINE_VALUES))
           .help_heading(COMPILE_HEADING),
       )
       .arg(no_code_cache_arg())
@@ -2610,7 +2627,7 @@ supported framework (Next.js, Astro, etc.) in the current directory.
         Arg::new("engine")
           .long("engine")
           .help("JS engine the desktop binary runs on (quickjs is smaller and experimental, and does not receive the same security updates as v8)")
-          .value_parser(["v8", "quickjs"])
+          .value_parser(PossibleValuesParser::new(JAVASCRIPT_ENGINE_VALUES))
           .help_heading(DESKTOP_HEADING),
       )
       .arg(
@@ -6965,7 +6982,7 @@ fn compile_parse(
   let engine = matches
     .remove_one::<String>("engine")
     .map(|value| value.parse().expect("engine is validated by clap"))
-    .unwrap_or_default();
+    .unwrap_or_else(default_javascript_engine);
   flags.watch = watch_arg_parse(matches)?;
   let icon = matches.remove_one::<String>("icon");
   let no_terminal = matches.get_flag("no-terminal");
@@ -7040,7 +7057,7 @@ fn desktop_parse(
   let engine = matches
     .remove_one::<String>("engine")
     .map(|value| value.parse().expect("engine is validated by clap"))
-    .unwrap_or_default();
+    .unwrap_or_else(default_javascript_engine);
   let all_targets = matches.get_flag("all-targets");
   // Self-extracting packaging is opt-in via `--compress [<fmt>]`. Bare
   // `--compress` defaults to xz (decompressed by the system `tar` with no
@@ -14283,7 +14300,7 @@ mod tests {
           app_name: None,
           minify: false,
           exclude_unused_npm: false,
-          engine: Default::default(),
+          engine: default_javascript_engine(),
         }),
         type_check_mode: TypeCheckMode::Local,
         code_cache_enabled: true,
@@ -14311,6 +14328,13 @@ mod tests {
       panic!("expected desktop subcommand");
     };
     assert_eq!(desktop.engine, JavaScriptEngine::QuickJs);
+  }
+
+  #[cfg(feature = "quickjs")]
+  #[test]
+  fn quickjs_build_rejects_v8_engine() {
+    let result = flags_from_vec(svec!["deno", "compile", "--engine", "v8", "main.ts"]);
+    assert!(result.is_err());
   }
 
   #[test]
@@ -14386,7 +14410,7 @@ mod tests {
           app_name: None,
           minify: false,
           exclude_unused_npm: false,
-          engine: Default::default(),
+          engine: default_javascript_engine(),
         }),
         type_check_mode: TypeCheckMode::Local,
         code_cache_enabled: true,
@@ -14424,7 +14448,7 @@ mod tests {
           app_name: None,
           minify: false,
           exclude_unused_npm: false,
-          engine: Default::default(),
+          engine: default_javascript_engine(),
         }),
         import_map_path: Some("import_map.json".to_string()),
         no_remote: true,
@@ -17689,7 +17713,7 @@ Usage: deno lint [OPTIONS] [files]...\n"
           app_name: None,
           minify: false,
           exclude_unused_npm: false,
-          engine: Default::default(),
+          engine: default_javascript_engine(),
         }),
         type_check_mode: TypeCheckMode::Local,
         preload: svec!["p1.js", "./p2.js"],

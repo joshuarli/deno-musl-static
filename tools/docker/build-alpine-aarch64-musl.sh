@@ -16,8 +16,12 @@ case "${BUILD_PROFILE}" in
     PROFILE_DIR=release
     PROFILE_ARGS=--release
     ;;
+  release-quickjs)
+    PROFILE_DIR=release-quickjs
+    PROFILE_ARGS='--profile release-quickjs'
+    ;;
   *)
-    echo "ERROR: BUILD_PROFILE must be debug or release" >&2
+    echo "ERROR: BUILD_PROFILE must be debug, release, or release-quickjs" >&2
     exit 1
     ;;
 esac
@@ -33,6 +37,12 @@ invalidate_stacker_cache() {
 invalidate_stacker_cache target
 invalidate_stacker_cache target-quickjs
 
+quickjs_dependency_tree="$(cargo tree -p deno --no-default-features --features quickjs -e normal)"
+if printf '%s\n' "${quickjs_dependency_tree}" | grep -Eq 'rusty_v8| v8 v150\.4'; then
+  echo "ERROR: QuickJS build graph unexpectedly contains the V8 engine" >&2
+  exit 1
+fi
+
 build_binary() {
   package="$1"
   artifact_name="$2"
@@ -42,7 +52,7 @@ build_binary() {
     --no-default-features --features quickjs
 
   path="target-quickjs/${RUST_TARGET}/${PROFILE_DIR}/${package}"
-  if [ "${BUILD_PROFILE}" = release ]; then
+  if [ "${BUILD_PROFILE}" = release ] || [ "${BUILD_PROFILE}" = release-quickjs ]; then
     # The release profile does not emit debug info and asks Cargo to strip
     # symbols. Keep this final artifact-level strip as a defense for custom
     # target/linker behavior; deno compile embeds denort, so any retained

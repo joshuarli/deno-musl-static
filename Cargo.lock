@@ -3447,6 +3447,7 @@ dependencies = [
 name = "deno_snapshots"
 version = "0.72.0"
 dependencies = [
+ "deno_core",
  "deno_runtime",
 ]
 

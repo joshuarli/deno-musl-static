@@ -486,6 +486,16 @@ debug = 0
 strip = "symbols"
 panic = "abort"
 
+# QuickJS is the only engine linked by the musl QuickJS artifacts. Keep this
+# profile separate from the general size-optimized release profile because
+# pi-deno values runtime throughput more than the smallest possible binary.
+[profile.release-quickjs]
+inherits = "release"
+opt-level = 3
+debug = 0
+strip = "symbols"
+lto = "thin"
+
 # NB: the `bench` and `release` profiles must remain EXACTLY the same.
 [profile.bench]
 incremental = false
