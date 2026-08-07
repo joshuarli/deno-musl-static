@@ -56,6 +56,11 @@ Latest core probe result:
   quickjs` emits a static standalone binary that executes `console.log(42)`.
 - QuickJS compile warns and disables Deno's V8-based type checker because the
   `deno_cli_tsc` extension is V8-specific. V8 compile behavior is unchanged.
+- The optimized release profile now uses thin LTO with Cargo's default release
+  codegen parallelism; it no longer uses the single-codegen-unit fat-LTO setup.
+- The release artifacts passed the same static gate and native Alpine smoke:
+  `deno` is 248,022,488 bytes and `denort` is 164,881,856 bytes. A release
+  `deno compile --engine quickjs` output executed and printed `42`.
 
 ## Ported changes
 
@@ -198,15 +203,10 @@ validated as a static musl archive before it enters the build contract.
 
 ## Remaining porting candidates
 
-- Validate the version-pinned stacker/psm overlays with the native snapshot
-  build; the stacker overlay is present, but its cached artifact must be
-  rebuilt after patching.
-- Validate the two-artifact QuickJS `deno compile` smoke path using the matching
-  `DENORT_BIN`; the debug path is now passing in minimal Alpine.
-- Add musl targets to Deno's `deno compile` target mapping after the native
-  binary itself links successfully.
-- Add focused artifact and target-mapping tests before treating the build as
-  release-ready.
+- Add musl targets to Deno's `deno compile` target mapping if the upstream
+  target surface is expanded beyond the current QuickJS integration path.
+- Add focused artifact and target-mapping tests if this work is promoted from a
+  repository-local release build into Deno's general release matrix.
 
 ## Acceptance criteria
 
@@ -304,7 +304,18 @@ debug and release profiles, invalidates the stacker cache, and exports only the
 two QuickJS artifacts. Keep the target volume separate from host Cargo output;
 `.dockerignore` excludes local target trees from the image context.
 
-The remaining release gate is to run the optimized build command above, inspect
-both release ELFs, and repeat the native Alpine compile/execution smoke. Do not
-call the work release-ready until the release artifacts, generated standalone
-ELF properties, and native execution are recorded here.
+The optimized release gate is complete for the scoped QuickJS artifacts. The
+release `deno` and matching `denort` were then used to build `pi-deno` from
+`/Users/josh/d/pi` with `Dockerfile.deno`. That integration build passed in a
+native Alpine arm64 container: `pi --version`, `pi --help`, the static ELF
+gate, and the embedded-assets/cache smoke all passed. The pi artifact is
+named `pi-003aadff9-deno-2.9.5-linux-arm64-musl-static` for that source
+revision.
+
+The pi Docker build uses esbuild outside the package ancestry, then lowers the
+bundle to CommonJS before `deno compile`. This is deliberate: the ESM bundle
+retains bare Node built-in imports and dependency-looking JSDoc imports that
+the standalone Deno resolver would otherwise try to resolve. The preparation
+step also supplies a stable `import.meta` file URL and lowers dynamic imports
+for the QuickJS runtime. `deno desktop` validation is outside this build's
+scope.
