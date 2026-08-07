@@ -33,6 +33,7 @@ quickjs = [
   "deno_snapshots/disable",
   "deno_v8_backend/quickjs",
 ]
+musl-mimalloc = ["dep:mimalloc"]
 v8 = [
   "deno_core/v8",
   "dep:deno_core",
@@ -73,6 +74,7 @@ import_map.workspace = true
 indexmap.workspace = true
 jsonc-parser = { workspace = true }
 libsui.workspace = true
+mimalloc = { workspace = true, optional = true }
 log = { workspace = true, features = ["serde"] }
 node_resolver.workspace = true
 notify.workspace = true

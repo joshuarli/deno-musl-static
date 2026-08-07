@@ -26,6 +26,8 @@ case "${BUILD_PROFILE}" in
     ;;
 esac
 
+QUICKJS_FEATURES=quickjs,musl-mimalloc
+
 invalidate_stacker_cache() {
   target_dir="$1"
   if [ -d "${target_dir}" ]; then
@@ -37,7 +39,7 @@ invalidate_stacker_cache() {
 invalidate_stacker_cache target
 invalidate_stacker_cache target-quickjs
 
-quickjs_dependency_tree="$(cargo tree -p deno --no-default-features --features quickjs -e normal)"
+quickjs_dependency_tree="$(cargo tree -p deno --no-default-features --features "${QUICKJS_FEATURES}" -e normal)"
 if printf '%s\n' "${quickjs_dependency_tree}" | grep -Eq 'rusty_v8| v8 v150\.4'; then
   echo "ERROR: QuickJS build graph unexpectedly contains the V8 engine" >&2
   exit 1
@@ -49,7 +51,7 @@ build_binary() {
 
   CARGO_TARGET_DIR=target-quickjs RUSTFLAGS="${RUSTFLAGS}" cargo build \
     --locked ${PROFILE_ARGS} -p "${package}" --bin "${package}" \
-    --no-default-features --features quickjs
+    --no-default-features --features "${QUICKJS_FEATURES}"
 
   path="target-quickjs/${RUST_TARGET}/${PROFILE_DIR}/${package}"
   if [ "${BUILD_PROFILE}" = release ] || [ "${BUILD_PROFILE}" = release-quickjs ]; then

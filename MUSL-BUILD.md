@@ -245,6 +245,11 @@ CMake's `Release` configuration, and uses `-O3` for its native glue where that
 path is selected. The `release-quickjs` Cargo profile therefore covers the Rust
 side without accidentally assuming it controls the C/C++ backend.
 
+The musl targets also enable the explicit `musl-mimalloc` feature for both
+`deno` and `denort`. It installs `mimalloc 0.1.52` as each binary's global
+allocator, statically linking the wrapper's default mimalloc v3.3.2 backend;
+other Deno profiles and platforms retain their existing allocator policy.
+
 The builder exports only:
 
 ```text

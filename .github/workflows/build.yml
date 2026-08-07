@@ -33,8 +33,7 @@ jobs:
 
           git init "$source_dir"
           git -C "$source_dir" remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
-          git -C "$source_dir" -c "http.extraheader=AUTHORIZATION: bearer $GH_TOKEN" \
-            fetch --depth=1 origin "$GITHUB_SHA"
+          git -C "$source_dir" fetch --depth=1 origin "$GITHUB_SHA"
           git -C "$source_dir" checkout --detach FETCH_HEAD
 
           cd "$source_dir"

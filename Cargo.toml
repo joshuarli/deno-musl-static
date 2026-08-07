@@ -381,6 +381,7 @@ lax-css = "=0.3.0"
 lax-markup = "=0.3.2"
 lax-sql = "=0.3.0"
 libsui = "=0.16.4"
+mimalloc = "=0.1.52"
 object = { version = "0.36.3", default-features = false, features = ["read_core", "pe"] }
 open = "5.0.1"
 pathdiff = "0.2.1"
