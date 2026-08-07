@@ -41,7 +41,8 @@ Latest probe result:
 - The single-graph debug build compiled V8 and reached the Deno snapshot build.
   The prior helper-link failure for `libc++abi.a` and `libunwind.a` is resolved.
 - ccache is active: generated V8 commands invoke `/usr/bin/ccache` before the
-  pinned LLVM compiler, and BuildKit persists its `/ccache` cache mount.
+  pinned LLVM compiler. The compiler now runs at container runtime, with ccache
+  and Rust's `target/` directory mounted from named Docker volumes.
 - The sanitizer callback overlay now handles V8's trap-only hardening without
   adding sanitizer headers or runtimes.
 - The V8 debug-only `execinfo.h` include and the stacker stack-pointer
@@ -73,8 +74,11 @@ Latest probe result:
   archiver, symbol, and binary utility paths, following the hermetic Chromium
   musl build at `/Users/josh/d/chromium-portable-hermetic-musl-build`.
 - It also uses `/usr/bin/ccache` for V8's compile actions. The ccache namespace
-  is tied to the LLVM archive digest, and BuildKit persists both the ccache data
-  and Cargo's `target/` directory across rebuilds.
+  is tied to the LLVM archive digest. The image prepares the source and toolchain;
+  the runtime build mounts `deno-aarch64-musl-target` at Cargo's `target/`,
+  `deno-aarch64-musl-ccache` at `/ccache`, and
+  `deno-aarch64-musl-artifacts` at `/artifacts`. This avoids macOS bind mounts
+  for all build outputs and keeps the Rust target cache inspectable and reusable.
 - The debug probe applies `tools/docker/deno-static-debug.patch` only when
   `BUILD_DENORT=0`. It removes the unused host-side build dependency graph and
   makes the `denort`-only linker-flag build script a no-op; the normal target
@@ -105,30 +109,46 @@ behavior rather than applying old patches by filename.
 
 ## Immediate next judge
 
-Run the native debug build:
+Build the prepared image. Compilation happens when the image runs so the Rust
+target and ccache data can live in named Docker volumes:
 
 ```sh
 docker buildx build --platform linux/arm64 --progress=plain \
   --build-arg V8_FROM_SOURCE=1 \
   --build-arg BUILD_DENORT=0 \
   -t deno-alpine-aarch64-musl-probe \
-  -f tools/docker/Dockerfile.alpine-aarch64-musl .
+  -f tools/docker/Dockerfile.alpine-aarch64-musl \
+  --load .
 ```
 
-Export without a macOS bind mount. The image copies checked binaries into a
-named-volume-backed `/artifacts` directory:
+Create the persistent build volumes and run without macOS bind mounts:
 
 ```sh
+docker volume create deno-aarch64-musl-target
+docker volume create deno-aarch64-musl-ccache
 docker volume create deno-aarch64-musl-artifacts
 docker run --rm --platform linux/arm64 \
+  --mount type=volume,source=deno-aarch64-musl-target,target=/src/deno/target \
+  --mount type=volume,source=deno-aarch64-musl-ccache,target=/ccache \
   --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
   deno-alpine-aarch64-musl-probe
+```
+
+The target and ccache volumes persist across image rebuilds and can be
+inspected with `docker volume inspect`. Export the checked artifact separately:
+
+```sh
 docker create --name deno-aarch64-musl-copy \
   --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
   alpine:latest
 docker cp deno-aarch64-musl-copy:/artifacts/deno-aarch64-unknown-linux-musl .
 docker rm deno-aarch64-musl-copy
 ```
+
+The Cargo registry is currently prepared in the image because the V8 and
+stacker source overlays are applied there. The named `target/` volume is the
+important incremental Rust state; a separately seeded registry volume can be
+added once the dependency overlay lifecycle is stable.
 
 The next failure should be classified at the narrowest layer:
 
