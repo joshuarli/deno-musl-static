@@ -6,6 +6,8 @@
 # copied into MUSL_ARTIFACT_DIR for inspection and smoke testing.
 
 DOCKER ?= docker
+DOCKER_BUILD ?= docker buildx build
+DOCKER_BUILD_CACHE_ARGS ?=
 MUSL_PLATFORM ?= linux/arm64
 MUSL_IMAGE ?= deno-alpine-aarch64-musl
 MUSL_BUILD_PROFILE ?= debug
@@ -47,7 +49,7 @@ musl-quickjs-release-smoke: musl-quickjs-release musl-quickjs-smoke
 
 musl-quickjs-build:
 	@set -eu; \
-	$(DOCKER) build --platform $(MUSL_PLATFORM) \
+	$(DOCKER_BUILD) $(DOCKER_BUILD_CACHE_ARGS) --load --platform $(MUSL_PLATFORM) \
 		--build-arg BUILD_PROFILE=$(MUSL_BUILD_PROFILE) \
 		--build-arg BUILD_DENORT=$(MUSL_BUILD_DENORT) \
 		--build-arg V8_DEBUG=$(MUSL_V8_DEBUG) \
@@ -84,14 +86,14 @@ musl-quickjs-smoke:
 			apk add --no-cache binutils file >/dev/null; \
 			deno=/artifacts/$(MUSL_DENO_ARTIFACT); \
 			denort=/artifacts/$(MUSL_DENORT_ARTIFACT); \
-			test -z "$$(readelf -lW "$$deno" | awk "/INTERP/{print}"); \
-			test -z "$$(readelf -dW "$$deno" | awk "/NEEDED/{print}"); \
-			test -z "$$(readelf -lW "$$denort" | awk "/INTERP/{print}"); \
-			test -z "$$(readelf -dW "$$denort" | awk "/NEEDED/{print}"); \
+			test -z "$$(readelf -lW "$$deno" | grep INTERP || true)"; \
+			test -z "$$(readelf -dW "$$deno" | grep NEEDED || true)"; \
+			test -z "$$(readelf -lW "$$denort" | grep INTERP || true)"; \
+			test -z "$$(readelf -dW "$$denort" | grep NEEDED || true)"; \
 			"$$deno" --version; \
 			printf "console.log(42)\\n" >/tmp/hello.ts; \
 			DENORT_BIN="$$denort" "$$deno" compile --engine quickjs --output /tmp/hello /tmp/hello.ts; \
 			/tmp/hello; \
 			file /tmp/hello; \
-			test -z "$$(readelf -lW /tmp/hello | awk "/INTERP/{print}"); \
-			test -z "$$(readelf -dW /tmp/hello | awk "/NEEDED/{print}")'
+			test -z "$$(readelf -lW /tmp/hello | grep INTERP || true)"; \
+			test -z "$$(readelf -dW /tmp/hello | grep NEEDED || true)"'

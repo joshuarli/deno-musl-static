@@ -39,6 +39,7 @@ jobs:
           cd "$source_dir"
           make musl-quickjs-release \
             MUSL_IMAGE="$image" \
+            DOCKER_BUILD_CACHE_ARGS='--cache-from type=gha,scope=deno-musl --cache-to type=gha,mode=max,scope=deno-musl' \
             MUSL_TARGET_VOLUME="$target_volume" \
             MUSL_QUICKJS_TARGET_VOLUME="$quickjs_target_volume" \
             MUSL_CCACHE_VOLUME="$ccache_volume" \
