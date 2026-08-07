@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: Build and publish the uncompressed QuickJS artifacts
+      - name: Build and publish the compressed QuickJS artifacts
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -55,9 +55,16 @@ jobs:
           test -x "$denort_artifact"
           file "$deno_artifact" "$denort_artifact"
 
+          deno_zip="$deno_artifact.zip"
+          denort_zip="$denort_artifact.zip"
+          zip -9 -j "$deno_zip" "$deno_artifact"
+          zip -9 -j "$denort_zip" "$denort_artifact"
+          test -s "$deno_zip"
+          test -s "$denort_zip"
+
           gh release create "$release_name" \
-            "$deno_artifact" \
-            "$denort_artifact" \
+            "$deno_zip" \
+            "$denort_zip" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$release_name" \
