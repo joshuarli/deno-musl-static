@@ -30,6 +30,7 @@ use crate::args::CompileFlags;
 use crate::args::ConfigFlag;
 use crate::args::DenoSubcommand;
 use crate::args::Flags;
+use crate::args::JavaScriptEngine;
 use crate::args::TypeCheckMode;
 use crate::factory::CliFactory;
 use crate::graph_util::ModuleGraphCreator;
@@ -72,6 +73,15 @@ async fn compile_inner(
   mut compile_flags: CompileFlags,
   watcher_communicator: Option<Arc<WatcherCommunicator>>,
 ) -> Result<(), AnyError> {
+  if matches!(compile_flags.engine, JavaScriptEngine::QuickJs)
+    && !matches!(flags.type_check_mode, TypeCheckMode::None)
+  {
+    log::warn!(
+      "QuickJS does not support Deno's V8-based type checker; disabling type checking for this compile"
+    );
+    flags.type_check_mode = TypeCheckMode::None;
+  }
+
   // Framework detection: when the source is a directory, detect the
   // framework and generate an entrypoint automatically.
   let source_dir = if compile_flags.source_file == "." {

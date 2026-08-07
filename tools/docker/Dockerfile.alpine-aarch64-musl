@@ -17,7 +17,9 @@ ARG LLVM_SIZE=73611888
 ARG V8_FROM_SOURCE=1
 ARG RUST_TARGET=aarch64-alpine-linux-musl
 ARG BUILD_DENORT=1
-ARG BUILD_QUICKJS=1
+ARG BUILD_PROFILE=debug
+ARG V8_DEBUG=1
+ARG V8_SYMBOL_LEVEL=1
 
 # Keep this list explicit. These are the native-musl toolchain and the build
 # inputs used by V8, bindgen, and Deno's system-library probes.
@@ -105,15 +107,16 @@ ENV PATH="/opt/llvm-musl/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
     CCACHE_CC="/opt/llvm-musl/bin/clang" \
     CCACHE_CXX="/opt/llvm-musl/bin/clang++" \
     CCACHE_NAMESPACE="aarch64-${LLVM_SHA256}" \
-    GN_ARGS="custom_toolchain=\"//build/toolchain/linux/unbundle:default\" host_toolchain=\"//build/toolchain/linux/unbundle:default\" v8_snapshot_toolchain=\"//build/toolchain/linux/unbundle:default\" cc_wrapper=\"/usr/bin/ccache\" clang_base_path=\"/opt/llvm-musl\" clang_version=${LLVM_MAJOR} fatal_linker_warnings=false is_asan=false is_hwasan=false is_msan=false is_tsan=false is_ubsan=false is_ubsan_security=false use_sanitizer_configs_without_instrumentation=false is_debug=true symbol_level=1 use_custom_libcxx=true use_sysroot=false use_system_libffi=true rust_sysroot_absolute=\"/usr\" rust_bindgen_root=\"/usr\" v8_enable_temporal_support=false" \
+    GN_ARGS="custom_toolchain=\"//build/toolchain/linux/unbundle:default\" host_toolchain=\"//build/toolchain/linux/unbundle:default\" v8_snapshot_toolchain=\"//build/toolchain/linux/unbundle:default\" cc_wrapper=\"/usr/bin/ccache\" clang_base_path=\"/opt/llvm-musl\" clang_version=${LLVM_MAJOR} fatal_linker_warnings=false is_asan=false is_hwasan=false is_msan=false is_tsan=false is_ubsan=false is_ubsan_security=false use_sanitizer_configs_without_instrumentation=false is_debug=${V8_DEBUG} symbol_level=${V8_SYMBOL_LEVEL} use_custom_libcxx=true use_sysroot=false use_system_libffi=true rust_sysroot_absolute=\"/usr\" rust_bindgen_root=\"/usr\" v8_enable_temporal_support=false" \
     EXTRA_GN_ARGS="use_custom_libcxx=true" \
     RUSTY_V8_USE_SYSTEM_RUST=1 \
     V8_FROM_SOURCE=${V8_FROM_SOURCE} \
     BUILD_DENORT=${BUILD_DENORT} \
-    BUILD_QUICKJS=${BUILD_QUICKJS} \
     CARGO_BUILD_TARGET=${RUST_TARGET} \
     CARGO_TERM_COLOR=always \
-    RUST_MIN_STACK=4194304
+    RUST_MIN_STACK=4194304 \
+    BUILD_PROFILE=${BUILD_PROFILE} \
+    CARGO_BUILD_JOBS=4
 
 # This probe is intentionally static-only. A passing build must not acquire a
 # loader or shared-library dependency as a side effect of iteration.
@@ -132,11 +135,10 @@ RUN set -eux; \
     rustc --print host-tuple; \
     test "$(rustc --print host-tuple)" = "${RUST_TARGET}"
 
-# Rusty V8 150.4.0 has no prebuilt archive for Alpine's target and its source
-# build needs a small downstream overlay: disable the aarch64 Debian sysroot,
-# use Alpine's target triple in GN, and use the Alpine Rust toolchain.
+# Rusty V8 150.4.0 has no prebuilt archive for Alpine's target. Its source
+# build needs the downstream Alpine overlay: disable the aarch64 Debian
+# sysroot, use Alpine's target triple in GN, and use the Alpine Rust toolchain.
 RUN set -eux; \
-    patch -p1 < tools/docker/deno-static-debug.patch; \
     cargo fetch; \
     v8_dir="$(find /root/.cargo/registry/src -type d -name 'v8-150.4.0' -print -quit)"; \
     test -n "${v8_dir}"; \
@@ -154,5 +156,5 @@ RUN set -eux; \
 COPY tools/docker/build-alpine-aarch64-musl.sh /usr/local/bin/build-alpine-aarch64-musl
 RUN chmod 0755 /usr/local/bin/build-alpine-aarch64-musl
 
-VOLUME ["/src/deno/target", "/ccache", "/artifacts"]
+VOLUME ["/src/deno/target", "/src/deno/target-quickjs", "/ccache", "/artifacts"]
 CMD ["/usr/local/bin/build-alpine-aarch64-musl"]

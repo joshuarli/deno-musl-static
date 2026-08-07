@@ -171,7 +171,7 @@ deno_permissions = { version = "0.116.0", path = "./runtime/permissions" }
 deno_print = { version = "0.5.0", path = "./libs/print" }
 deno_resolver = { version = "0.88.0", path = "./libs/resolver" }
 deno_runtime = { version = "0.265.0", path = "./runtime" }
-deno_snapshots = { version = "0.72.0", path = "./cli/snapshot" }
+deno_snapshots = { version = "0.72.0", path = "./cli/snapshot", default-features = false }
 deno_subprocess_windows = { path = "./runtime/subprocess_windows", version = "0.52.0" }
 eszip = { version = "0.135.0", path = "./libs/eszip" }
 napi_sym = { version = "0.187.0", path = "./ext/napi/sym" }

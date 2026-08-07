@@ -83,7 +83,7 @@ fn overwrite_argv_buffer(title: &str) {
 ///
 /// # Safety
 /// `argv` must be a valid pointer to `argc` C string pointers.
-#[cfg(unix)]
+#[cfg(any(target_os = "macos", all(target_os = "linux", target_env = "gnu")))]
 unsafe fn compute_argv_info(
   argc: usize,
   argv: *mut *mut libc::c_char,
@@ -102,7 +102,7 @@ unsafe fn compute_argv_info(
   }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 #[used]
 #[unsafe(link_section = ".init_array")]
 static ARGV_INIT_FN: unsafe extern "C" fn(

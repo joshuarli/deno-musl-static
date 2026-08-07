@@ -370,6 +370,10 @@ pub fn exec_request(
     create_params: create_isolate_create_params(&crate::sys::CliSys::default()),
     startup_snapshot: deno_snapshots::CLI_SNAPSHOT,
     extension_code_cache,
+    #[cfg(feature = "quickjs")]
+    extension_transpiler: Some(Rc::new(|specifier, source| {
+      deno_runtime::transpile::maybe_transpile_source(specifier, source)
+    })),
     // The TSC isolate shares CLI_SNAPSHOT, which under node-defer leaves
     // node:process (and the rest of node's `lazy_loaded_esm` set) outside
     // the snapshot blob. The compiler reads `process` (isNodeLikeSystem),

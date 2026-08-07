@@ -1,11 +1,26 @@
 #!/bin/sh
 set -eu
 
-# Build debug Deno and denort variants. QuickJS is built separately because the
-# engine feature changes the complete Rust/C engine graph and each binary needs
-# a distinct artifact name.
+# Build the scoped QuickJS Deno and denort variants. The engine feature changes
+# the complete Rust/C graph, so it has its own persistent Cargo target tree.
 RUST_TARGET="${RUST_TARGET:-${CARGO_BUILD_TARGET:?CARGO_BUILD_TARGET must be set}}"
 RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static"
+BUILD_PROFILE="${BUILD_PROFILE:-debug}"
+
+case "${BUILD_PROFILE}" in
+  debug)
+    PROFILE_DIR=debug
+    PROFILE_ARGS=
+    ;;
+  release)
+    PROFILE_DIR=release
+    PROFILE_ARGS=--release
+    ;;
+  *)
+    echo "ERROR: BUILD_PROFILE must be debug or release" >&2
+    exit 1
+    ;;
+esac
 
 invalidate_stacker_cache() {
   target_dir="$1"
@@ -20,22 +35,13 @@ invalidate_stacker_cache target-quickjs
 
 build_binary() {
   package="$1"
-  feature_set="$2"
-  artifact_name="$3"
-  target_dir=target
+  artifact_name="$2"
 
-  if [ "${feature_set}" = quickjs ]; then
-    target_dir=target-quickjs
-  fi
+  CARGO_TARGET_DIR=target-quickjs RUSTFLAGS="${RUSTFLAGS}" cargo build \
+    --locked ${PROFILE_ARGS} -p "${package}" --bin "${package}" \
+    --no-default-features --features quickjs
 
-  if [ "${feature_set}" = quickjs ]; then
-    CARGO_TARGET_DIR="${target_dir}" RUSTFLAGS="${RUSTFLAGS}" cargo build --locked -p "${package}" --bin "${package}" \
-      --no-default-features --features quickjs
-  else
-    CARGO_TARGET_DIR="${target_dir}" RUSTFLAGS="${RUSTFLAGS}" cargo build --locked -p "${package}" --bin "${package}"
-  fi
-
-  path="${target_dir}/${RUST_TARGET}/debug/${package}"
+  path="target-quickjs/${RUST_TARGET}/${PROFILE_DIR}/${package}"
   file "${path}"
   readelf -lW "${path}"
   readelf -dW "${path}" || true
@@ -53,15 +59,9 @@ build_binary() {
   chmod +x "/artifacts/${artifact_name}"
 }
 
-build_binary deno v8 deno-aarch64-unknown-linux-musl
+build_binary deno deno-quickjs-aarch64-unknown-linux-musl
 if [ "${BUILD_DENORT}" = 1 ]; then
-  build_binary denort v8 denort-aarch64-unknown-linux-musl
-fi
-if [ "${BUILD_QUICKJS}" = 1 ]; then
-  build_binary deno quickjs deno-quickjs-aarch64-unknown-linux-musl
-  if [ "${BUILD_DENORT}" = 1 ]; then
-    build_binary denort quickjs denort-quickjs-aarch64-unknown-linux-musl
-  fi
+  build_binary denort denort-quickjs-aarch64-unknown-linux-musl
 fi
 
 ccache --show-stats
