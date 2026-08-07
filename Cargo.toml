@@ -478,9 +478,8 @@ winres = "=0.1.12"
 
 # NB: the `bench` and `release` profiles must remain EXACTLY the same.
 [profile.release]
-codegen-units = 1
 incremental = false
-lto = true
+lto = "thin"
 opt-level = 'z' # Optimize for size
 split-debuginfo = "packed"
 debug = "line-tables-only"
@@ -488,9 +487,8 @@ panic = "abort"
 
 # NB: the `bench` and `release` profiles must remain EXACTLY the same.
 [profile.bench]
-codegen-units = 1
 incremental = false
-lto = true
+lto = "thin"
 opt-level = 'z' # Optimize for size
 split-debuginfo = "packed"
 debug = "line-tables-only"
