@@ -214,6 +214,10 @@ impl DenoSubcommandExt for DenoSubcommand {
             os: "linux".into(),
             cpu: "arm64".into(),
           },
+          "aarch64-unknown-linux-musl" => NpmSystemInfo {
+            os: "linux".into(),
+            cpu: "arm64".into(),
+          },
           "x86_64-apple-darwin" => NpmSystemInfo {
             os: "darwin".into(),
             cpu: "x64".into(),
@@ -2349,7 +2353,17 @@ Unless --reload is specified, this command will not re-download already cached d
     )
 }
 
-const SUPPORTED_OS: [&str; 6] = [
+const COMPILE_SUPPORTED_OS: [&str; 7] = [
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "aarch64-unknown-linux-musl",
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+];
+
+const DESKTOP_SUPPORTED_OS: [&str; 6] = [
   "x86_64-unknown-linux-gnu",
   "aarch64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -2420,7 +2434,7 @@ On the first invocation of `deno compile`, Deno will download the relevant binar
         Arg::new("target")
           .long("target")
           .help("Target OS architecture")
-          .value_parser(SUPPORTED_OS)
+          .value_parser(COMPILE_SUPPORTED_OS)
           .help_heading(COMPILE_HEADING),
       )
       .arg(
@@ -2565,7 +2579,7 @@ supported framework (Next.js, Astro, etc.) in the current directory.
         Arg::new("target")
           .long("target")
           .help("Target OS architecture")
-          .value_parser(SUPPORTED_OS)
+          .value_parser(DESKTOP_SUPPORTED_OS)
           .help_heading(DESKTOP_HEADING),
       )
       .arg(no_code_cache_arg())
@@ -14439,8 +14453,8 @@ mod tests {
   #[test]
   fn compile_target_aarch64_windows() {
     // denort for Windows arm64 is built and published by CI, so
-    // `--target aarch64-pc-windows-msvc` must be accepted by the SUPPORTED_OS
-    // value parser (and an unsupported triple must still be rejected).
+    // `--target aarch64-pc-windows-msvc` must be accepted by the compile
+    // target value parser (and an unsupported triple must still be rejected).
     let r = flags_from_vec(svec![
       "deno",
       "compile",
@@ -14459,6 +14473,32 @@ mod tests {
         "compile",
         "--target",
         "riscv64gc-unknown-linux-gnu",
+        "main.ts"
+      ])
+      .is_err()
+    );
+  }
+
+  #[test]
+  fn compile_target_aarch64_linux_musl() {
+    let r = flags_from_vec(svec![
+      "deno",
+      "compile",
+      "--target",
+      "aarch64-unknown-linux-musl",
+      "main.ts"
+    ]);
+    let DenoSubcommand::Compile(c) = r.unwrap().subcommand else {
+      unreachable!()
+    };
+    assert_eq!(c.target, Some("aarch64-unknown-linux-musl".to_string()));
+
+    assert!(
+      flags_from_vec(svec![
+        "deno",
+        "compile",
+        "--target",
+        "x86_64-unknown-linux-musl",
         "main.ts"
       ])
       .is_err()

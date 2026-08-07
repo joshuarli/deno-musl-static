@@ -18,3 +18,4 @@ disable = []
 
 [build-dependencies]
 deno_runtime = { workspace = true, features = ["snapshot"] }
+deno_core = { workspace = true, features = ["v8"] }

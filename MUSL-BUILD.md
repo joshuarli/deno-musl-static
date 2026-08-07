@@ -54,6 +54,12 @@ Latest core probe result:
 - `deno eval` still reaches V8's debug embedded-blob compatibility check. This
   is tracked separately from the static link gate; the next runtime smoke path
   is QuickJS while the V8 configuration is isolated and fixed.
+- The QuickJS graph now builds both `denort` and `deno`. Both artifacts pass the
+  static ELF gate and native Alpine arm64 `deno --version` runs successfully.
+  The QuickJS compile smoke is still blocked by the temporary disabled-snapshot
+  arrangement: without generated residual JavaScript, the runtime attempts to
+  parse `ext/bundle/bundle.ts` as JavaScript. A minimal `alpine:latest` runner
+  also lacks the build-time `/src/deno` source tree used by this debug path.
 
 ## Ported changes
 
@@ -90,6 +96,9 @@ Latest core probe result:
   enabled: `deno-aarch64-unknown-linux-musl`,
   `denort-aarch64-unknown-linux-musl`, `deno-quickjs-aarch64-unknown-linux-musl`,
   and `denort-quickjs-aarch64-unknown-linux-musl`.
+- `zlib-static` is part of the Alpine image contract. `zlib-dev` alone provides
+  the shared `libz.so` linker name, while the static build requires Alpine's
+  validated `/usr/lib/libz.a` archive.
 
 ## Alpine Deno patch reconciliation
 
@@ -230,10 +239,11 @@ The named Docker volumes already used by the probe are:
 The V8 `deno` debug artifact was previously built and passed the static ELF
 gate (`static-pie`, no `INTERP`, no `DT_NEEDED`); native Alpine arm64
 `deno --version` also worked. V8 `deno eval` still failed at V8's embedded-blob
-compatibility check. The QuickJS `denort` build was allowed to finish in the
-same target volume using `/src/deno/target-quickjs`, but exited 101 while
-compiling. Because that runner was ephemeral, its final compiler diagnostic was
-not retained; no QuickJS artifact or compile smoke test has been verified.
+compatibility check. The QuickJS `denort` and `deno` artifacts are now built in
+`/src/deno/target-quickjs`, pass the same static ELF gate, and are published in
+the artifact volume under the names below. The compile smoke reaches runtime
+initialization but still fails because the temporary disabled-snapshot build
+does not embed the transpiled residual JavaScript required by QuickJS.
 
 Resume with these commands from the repository root:
 
@@ -242,7 +252,8 @@ docker create --name deno-aarch64-musl-quickjs-build --platform linux/arm64 \
   --mount type=volume,source=deno-aarch64-musl-target,target=/src/deno/target \
   --mount type=volume,source=deno-aarch64-musl-ccache,target=/ccache \
   --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
-  deno-alpine-aarch64-musl-probe sh -lc '
+  deno-alpine-aarch64-musl-probe sh -c '
+    export PATH="/opt/llvm-musl/bin:${PATH}"
     export RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static"
     CARGO_TARGET_DIR=/src/deno/target-quickjs \
       cargo build --locked -p denort --bin denort --no-default-features --features quickjs
@@ -263,12 +274,16 @@ denort-quickjs-aarch64-unknown-linux-musl
 deno-quickjs-aarch64-unknown-linux-musl
 ```
 
-Then run the smoke test:
+Then run the current debug smoke test from the prepared probe image. The image
+contains `/src/deno`, which is needed because disabled snapshots make some
+runtime extensions resolve their original source paths. The minimal Alpine
+runner shown in the original handoff is not sufficient until the normal
+snapshot/residual-source design is restored.
 
 ```sh
 docker create --name deno-aarch64-musl-quickjs-smoke-verified --platform linux/arm64 \
   --mount type=volume,source=deno-aarch64-musl-artifacts,target=/artifacts \
-  alpine:latest sh -lc '
+  deno-alpine-aarch64-musl-probe sh -c '
     printf "console.log(42)\\n" > /tmp/hello.ts
     DENORT_BIN=/artifacts/denort-quickjs-aarch64-unknown-linux-musl \
       /artifacts/deno-quickjs-aarch64-unknown-linux-musl compile \
@@ -286,16 +301,16 @@ them with `docker start -a <name>` and inspect failures with `docker logs
 <name>`; remove a container only as an explicit cleanup decision after its
 logs are no longer needed.
 
-Before relying on the shell script for repeatable iterations, update
-`tools/docker/build-alpine-aarch64-musl.sh` so QuickJS always uses
-`CARGO_TARGET_DIR=target-quickjs` while V8 uses `target`. Also invalidate the
-stacker cache in both target trees. The current script still hard-codes
-`target/`, whereas the manual QuickJS build was deliberately isolated in
-`target-quickjs/` to avoid mixing engine-specific Rust units.
+`tools/docker/build-alpine-aarch64-musl.sh` now uses `target` for V8,
+`target-quickjs` for QuickJS, and invalidates the stacker cache in both trees.
+Keep the engine-specific target directories separate; mixing their Rust units
+can reuse incompatible feature graphs.
 
-After the QuickJS smoke test, build and check V8 `denort`, rerun V8 `deno`, and
-record whether disabling snapshots removes the embedded-blob failure. Finally
-run the four-variant matrix, `git diff --check`, and `sh -n
+The next porting task is to restore a snapshot/residual-source design that is
+usable by the QuickJS backend, then rerun the compile smoke in a minimal Alpine
+runner. After that, build and check V8 `denort`, rerun V8 `deno`, and record
+whether the release snapshot removes the embedded-blob failure. Finally run
+the four-variant matrix, `git diff --check`, and `sh -n
 tools/docker/build-alpine-aarch64-musl.sh`. Do not call the work release-ready
 until the target mapping for `deno compile`, the generated artifact's static
 ELF properties, and a native Alpine execution test are all recorded here.

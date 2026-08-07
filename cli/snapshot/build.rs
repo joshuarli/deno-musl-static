@@ -1,6 +1,5 @@
 // Copyright 2018-2026 the Deno authors. MIT license.
 
-#[cfg(not(feature = "disable"))]
 mod shared;
 
 fn main() {
@@ -11,16 +10,12 @@ fn main() {
     println!("cargo:rerun-if-env-changed=DENO_SNAPSHOT_IMPORT_GRAPH");
     println!("cargo:rerun-if-env-changed=DENO_SNAPSHOT_MINIFY_SOURCES");
   }
-  #[cfg(not(feature = "disable"))]
-  {
-    let o = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-    let cli_snapshot_path = o.join("CLI_SNAPSHOT.bin");
-    let residual_path = o.join("EXTENSION_RESIDUAL_SOURCES.rs");
-    create_cli_snapshot(cli_snapshot_path, residual_path);
-  }
+  let o = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+  let cli_snapshot_path = o.join("CLI_SNAPSHOT.bin");
+  let residual_path = o.join("EXTENSION_RESIDUAL_SOURCES.rs");
+  create_cli_snapshot(cli_snapshot_path, residual_path);
 }
 
-#[cfg(not(feature = "disable"))]
 fn create_cli_snapshot(
   snapshot_path: std::path::PathBuf,
   residual_path: std::path::PathBuf,
@@ -129,7 +124,6 @@ fn create_cli_snapshot(
 /// always means an eager `esm` entry (or a static import from one) is dragging
 /// the polyfill closure into startup; fix that in `ext/node/lib.rs` rather than
 /// widening this list. See PR #34450.
-#[cfg(not(feature = "disable"))]
 const EXPECTED_CONSUMED: &[&str] = &[
   "ext:deno_crypto/00_crypto.js",
   "ext:deno_fetch/22_http_client.js",
@@ -204,7 +198,6 @@ const EXPECTED_CONSUMED: &[&str] = &[
 /// failure mode that regresses empty/ESM startup at fine granularity, well
 /// before a coarse count threshold would notice. Removals (a module becoming
 /// lazy — an improvement) are allowed; additions fail the build.
-#[cfg(not(feature = "disable"))]
 fn assert_consumed_set_unchanged(consumed: &std::collections::HashSet<&str>) {
   let expected: std::collections::HashSet<&str> =
     EXPECTED_CONSUMED.iter().copied().collect();
@@ -222,7 +215,6 @@ fn assert_consumed_set_unchanged(consumed: &std::collections::HashSet<&str>) {
   );
 }
 
-#[cfg(not(feature = "disable"))]
 fn transpile_residual_source(
   out_dir: &std::path::Path,
   specifier: &str,
@@ -262,7 +254,6 @@ fn transpile_residual_source(
   out_path
 }
 
-#[cfg(not(feature = "disable"))]
 fn wrap_residual_js_source(path: &std::path::Path) {
   use deno_runtime::deno_core::wrap_lazy_ext_script;
   let source = std::fs::read_to_string(path).unwrap();
@@ -270,7 +261,6 @@ fn wrap_residual_js_source(path: &std::path::Path) {
   std::fs::write(path, wrapped.as_bytes()).unwrap();
 }
 
-#[cfg(not(feature = "disable"))]
 fn assert_residual_entry_ascii(path: &std::path::Path, specifier: &str) {
   assert!(
     specifier.is_ascii(),
@@ -284,7 +274,6 @@ fn assert_residual_entry_ascii(path: &std::path::Path, specifier: &str) {
   );
 }
 
-#[cfg(not(feature = "disable"))]
 fn write_residual_table(
   f: &mut std::fs::File,
   out_dir: &std::path::Path,

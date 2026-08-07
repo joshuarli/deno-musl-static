@@ -50,6 +50,7 @@ RUN apk add --no-cache \
     sqlite-dev \
     xz \
     zlib-dev \
+    zlib-static \
     zlib-ng-dev \
     zstd-dev \
   && update-ca-certificates

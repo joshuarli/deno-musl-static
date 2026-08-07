@@ -7,24 +7,35 @@ set -eu
 RUST_TARGET="${RUST_TARGET:-${CARGO_BUILD_TARGET:?CARGO_BUILD_TARGET must be set}}"
 RUSTFLAGS="-C linker=clang++ -C link-arg=-fuse-ld=lld -C target-feature=+crt-static"
 
-if [ -d target ]; then
-  find target -type d -name 'stacker-*' -prune -exec rm -rf '{}' +
-  find target -type f \( -name 'libstacker-*' -o -name 'stacker-*' \) -delete
-fi
+invalidate_stacker_cache() {
+  target_dir="$1"
+  if [ -d "${target_dir}" ]; then
+    find "${target_dir}" -type d -name 'stacker-*' -prune -exec rm -rf '{}' +
+    find "${target_dir}" -type f \( -name 'libstacker-*' -o -name 'stacker-*' \) -delete
+  fi
+}
+
+invalidate_stacker_cache target
+invalidate_stacker_cache target-quickjs
 
 build_binary() {
   package="$1"
   feature_set="$2"
   artifact_name="$3"
+  target_dir=target
 
   if [ "${feature_set}" = quickjs ]; then
-    RUSTFLAGS="${RUSTFLAGS}" cargo build --locked -p "${package}" --bin "${package}" \
-      --no-default-features --features quickjs
-  else
-    RUSTFLAGS="${RUSTFLAGS}" cargo build --locked -p "${package}" --bin "${package}"
+    target_dir=target-quickjs
   fi
 
-  path="target/${RUST_TARGET}/debug/${package}"
+  if [ "${feature_set}" = quickjs ]; then
+    CARGO_TARGET_DIR="${target_dir}" RUSTFLAGS="${RUSTFLAGS}" cargo build --locked -p "${package}" --bin "${package}" \
+      --no-default-features --features quickjs
+  else
+    CARGO_TARGET_DIR="${target_dir}" RUSTFLAGS="${RUSTFLAGS}" cargo build --locked -p "${package}" --bin "${package}"
+  fi
+
+  path="${target_dir}/${RUST_TARGET}/debug/${package}"
   file "${path}"
   readelf -lW "${path}"
   readelf -dW "${path}" || true
