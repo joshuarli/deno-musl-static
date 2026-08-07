@@ -279,7 +279,7 @@ run the same builder command:
 ```sh
 docker build --platform linux/arm64 \
   --build-arg BUILD_PROFILE=release \
-  --build-arg V8_DEBUG=0 \
+  --build-arg V8_DEBUG=false \
   --build-arg V8_SYMBOL_LEVEL=0 \
   -t deno-alpine-aarch64-musl-release \
   -f tools/docker/Dockerfile.alpine-aarch64-musl .

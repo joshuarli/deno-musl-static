@@ -18,7 +18,7 @@ ARG V8_FROM_SOURCE=1
 ARG RUST_TARGET=aarch64-alpine-linux-musl
 ARG BUILD_DENORT=1
 ARG BUILD_PROFILE=debug
-ARG V8_DEBUG=1
+ARG V8_DEBUG=true
 ARG V8_SYMBOL_LEVEL=1
 
 # Keep this list explicit. These are the native-musl toolchain and the build
