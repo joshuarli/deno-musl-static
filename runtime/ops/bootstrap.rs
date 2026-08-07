@@ -10,6 +10,7 @@ deno_core::extension!(
   deno_bootstrap,
   ops = [
     op_bootstrap_args,
+    op_bootstrap_kv_enabled,
     op_bootstrap_pid,
     op_bootstrap_numcpus,
     op_bootstrap_image_enabled,
@@ -88,6 +89,11 @@ pub fn op_bootstrap_args(state: &mut OpState) -> Vec<String> {
 #[smi]
 pub fn op_bootstrap_pid() -> u32 {
   std::process::id()
+}
+
+#[op2(fast)]
+pub fn op_bootstrap_kv_enabled() -> bool {
+  cfg!(feature = "kv")
 }
 
 #[op2(fast)]

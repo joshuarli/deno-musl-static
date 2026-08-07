@@ -4,6 +4,7 @@ import { core, internals, primordials } from "ext:core/mod.js";
 import {
   op_net_listen_udp,
   op_net_listen_unixpacket,
+  op_bootstrap_kv_enabled,
   op_bootstrap_webgpu_enabled,
   op_runtime_cpu_usage,
   op_runtime_memory_usage,
@@ -74,6 +75,7 @@ const lazyTelemetry = () =>
     (_telemetry = core.loadExtScript("ext:deno_telemetry/telemetry.ts"));
 import { unstableIds } from "ext:deno_features/flags.js";
 const webgpuEnabled = op_bootstrap_webgpu_enabled();
+const kvEnabled = op_bootstrap_kv_enabled();
 const loadWebGPU = () => {
   if (!webgpuEnabled) return undefined;
   return core.loadExtScript("ext:deno_webgpu/00_init.js").loadWebGPU();
@@ -326,23 +328,25 @@ denoNsUnstableById[unstableIds.cron] = {
   },
 };
 
-denoNsUnstableById[unstableIds.kv] = {
-  get openKv() {
-    return lazyKv().openKv;
-  },
-  get AtomicOperation() {
-    return lazyKv().AtomicOperation;
-  },
-  get Kv() {
-    return lazyKv().Kv;
-  },
-  get KvU64() {
-    return lazyKv().KvU64;
-  },
-  get KvListIterator() {
-    return lazyKv().KvListIterator;
-  },
-};
+if (kvEnabled) {
+  denoNsUnstableById[unstableIds.kv] = {
+    get openKv() {
+      return lazyKv().openKv;
+    },
+    get AtomicOperation() {
+      return lazyKv().AtomicOperation;
+    },
+    get Kv() {
+      return lazyKv().Kv;
+    },
+    get KvU64() {
+      return lazyKv().KvU64;
+    },
+    get KvListIterator() {
+      return lazyKv().KvListIterator;
+    },
+  };
+}
 
 denoNsUnstableById[unstableIds.net] = {
   listenDatagram: net.createListenDatagram(

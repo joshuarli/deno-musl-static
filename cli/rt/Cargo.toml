@@ -38,6 +38,7 @@ v8 = [
   "deno_core/v8",
   "dep:deno_core",
   "dep:deno_runtime",
+  "deno_runtime/kv",
   "deno_runtime/webgpu",
   "deno_snapshots/v8_snapshot",
   "deno_v8_backend/v8",

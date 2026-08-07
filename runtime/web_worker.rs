@@ -43,6 +43,7 @@ use deno_cron::CronHandlerImpl;
 use deno_error::JsErrorClass;
 use deno_fs::FileSystem;
 use deno_io::Stdio;
+#[cfg(feature = "kv")]
 use deno_kv::dynamic::MultiBackendDbHandler;
 use deno_napi::DenoRtNativeAddonLoaderRc;
 use deno_node::ExtNodeSys;
@@ -51,6 +52,7 @@ use deno_permissions::PermissionsContainer;
 use deno_process::NpmProcessStateProviderRc;
 use deno_terminal::colors;
 use deno_tls::RootCertStoreProvider;
+#[cfg(feature = "kv")]
 use deno_tls::TlsKeys;
 use deno_web::Blob;
 use deno_web::BlobStoreTrait;
@@ -570,6 +572,7 @@ impl WebWorker {
         options.unsafely_ignore_certificate_errors.clone(),
       ),
       deno_tls::deno_tls::init(),
+      #[cfg(feature = "kv")]
       deno_kv::deno_kv::init(
         Box::new(MultiBackendDbHandler::remote_or_sqlite(
           None,

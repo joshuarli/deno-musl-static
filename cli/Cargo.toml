@@ -31,6 +31,7 @@ v8 = [
   "__runtime_defaults",
   "deno_core/v8",
   "deno_snapshots/v8_snapshot",
+  "deno_runtime/kv",
   "lsp",
   "webgpu",
   "v8/v8",
@@ -210,7 +211,7 @@ text-size.workspace = true
 text_lines.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
-tokio-util.workspace = true
+tokio-util = { workspace = true, features = ["compat"] }
 tower-lsp.workspace = true
 tracing = { workspace = true, features = ["log"], optional = true }
 tracing-opentelemetry = { workspace = true, optional = true }
