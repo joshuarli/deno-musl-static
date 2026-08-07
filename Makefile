@@ -258,12 +258,14 @@ macos-build:
 		echo "ERROR: QuickJS build graph unexpectedly contains the V8 engine" >&2; \
 		exit 1; \
 	fi; \
-	build_binary() { \
+	cargo_packages='-p deno'; \
+	if [ "$(MACOS_BUILD_DENORT)" = 1 ]; then cargo_packages="$$cargo_packages -p denort"; fi; \
+	cargo build --locked --target "$(MACOS_RUST_TARGET)" --target-dir "$(MACOS_TARGET_DIR)" \
+		$$profile_args $$cargo_packages --bins \
+		--no-default-features --features "$(MACOS_ENGINE)"; \
+	copy_binary() { \
 		package="$$1"; \
 		artifact_name="$$2"; \
-		cargo build --locked --target "$(MACOS_RUST_TARGET)" --target-dir "$(MACOS_TARGET_DIR)" \
-			$$profile_args -p "$$package" --bin "$$package" \
-			--no-default-features --features "$(MACOS_ENGINE)"; \
 		path="$(MACOS_TARGET_DIR)/$(MACOS_RUST_TARGET)/$$profile_dir/$$package"; \
 		test -x "$$path"; \
 		file "$$path"; \
@@ -271,9 +273,9 @@ macos-build:
 		cp "$$path" "$(MACOS_ARTIFACT_DIR)/$$artifact_name"; \
 		chmod +x "$(MACOS_ARTIFACT_DIR)/$$artifact_name"; \
 	}; \
-	build_binary deno "$(MACOS_DENO_ARTIFACT)"; \
+	copy_binary deno "$(MACOS_DENO_ARTIFACT)"; \
 	if [ "$(MACOS_BUILD_DENORT)" = 1 ]; then \
-		build_binary denort "$(MACOS_DENORT_ARTIFACT)"; \
+		copy_binary denort "$(MACOS_DENORT_ARTIFACT)"; \
 	fi
 
 macos-quickjs-build: MACOS_ENGINE=quickjs

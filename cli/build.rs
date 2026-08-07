@@ -5,10 +5,8 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
-use deno_runtime::*;
-
 fn compress_decls(out_dir: &Path) {
-  let decls = [
+  let mut decls = vec![
     "lib.deno.ns.d.ts",
     "lib.deno.unstable.d.ts",
     "lib.deno.window.d.ts",
@@ -22,8 +20,6 @@ fn compress_decls(out_dir: &Path) {
     "lib.deno_fetch.d.ts",
     "lib.deno_websocket.d.ts",
     "lib.deno_webstorage.d.ts",
-    "lib.deno_webgpu.d.ts",
-    "lib.deno_canvas.d.ts",
     "lib.deno_crypto.d.ts",
     "lib.deno_cache.d.ts",
     "lib.deno_net.d.ts",
@@ -143,6 +139,9 @@ fn compress_decls(out_dir: &Path) {
     "lib.webworker.importscripts.d.ts",
     "lib.webworker.iterable.d.ts",
   ];
+  if env::var_os("CARGO_FEATURE_WEBGPU").is_some() {
+    decls.extend(["lib.deno_webgpu.d.ts", "lib.deno_canvas.d.ts"]);
+  }
   for decl in decls {
     let file = format!("./tsc/dts/{decl}");
     compress_source(out_dir, &file);
@@ -547,6 +546,7 @@ fn main() {
   }
 
   deno_napi::print_linker_flags("deno");
+  #[cfg(feature = "webgpu")]
   deno_webgpu::print_linker_flags("deno");
 
   // Host snapshots won't work when cross compiling.

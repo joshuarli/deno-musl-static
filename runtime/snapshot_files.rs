@@ -36,13 +36,11 @@ pub enum LazyExtensionFileKind {
 pub fn runtime_extensions(
   snapshot_options: Option<SnapshotOptions>,
 ) -> Vec<Extension> {
-  vec![
+  let mut extensions = vec![
     deno_telemetry::deno_telemetry::lazy_init(),
     deno_webidl::deno_webidl::lazy_init(),
     deno_web::deno_web::lazy_init(),
-    deno_webgpu::deno_webgpu::lazy_init(),
     deno_image::deno_image::lazy_init(),
-    deno_canvas::deno_canvas::lazy_init(),
     deno_fetch::deno_fetch::lazy_init(),
     deno_cache::deno_cache::lazy_init(),
     deno_websocket::deno_websocket::lazy_init(),
@@ -79,7 +77,14 @@ pub fn runtime_extensions(
     ops::bootstrap::deno_bootstrap::init(snapshot_options, false),
     runtime::lazy_init(),
     ops::web_worker::deno_web_worker::lazy_init(),
-  ]
+  ];
+  if let Some(extension) = crate::webgpu_lazy_extension() {
+    extensions.insert(3, extension);
+  }
+  if let Some(extension) = crate::canvas_lazy_extension() {
+    extensions.insert(5, extension);
+  }
+  extensions
 }
 
 /// Collect every on-disk lazy extension source declared by the runtime graph.

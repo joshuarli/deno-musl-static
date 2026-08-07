@@ -14,7 +14,7 @@ pub fn get_extensions_in_snapshot() -> Vec<Extension> {
   // `runtime/worker.rs`, `runtime/web_worker.rs`, `runtime/snapshot_info.rs`
   // and `runtime/snapshot.rs`!
   let fs = std::sync::Arc::new(deno_fs::RealFs);
-  vec![
+  let mut extensions = vec![
     deno_telemetry::deno_telemetry::init(),
     deno_webidl::deno_webidl::init(),
     deno_web::deno_web::init(
@@ -23,9 +23,7 @@ pub fn get_extensions_in_snapshot() -> Vec<Extension> {
       Default::default(),
       deno_web::InMemoryBroadcastChannel::default(),
     ),
-    deno_webgpu::deno_webgpu::init(),
     deno_image::deno_image::init(),
-    deno_canvas::deno_canvas::init(),
     deno_fetch::deno_fetch::init(Default::default()),
     deno_cache::deno_cache::init(None),
     deno_websocket::deno_websocket::init(),
@@ -68,5 +66,12 @@ pub fn get_extensions_in_snapshot() -> Vec<Extension> {
     ops::bootstrap::deno_bootstrap::init(None, false),
     runtime::init(),
     ops::web_worker::deno_web_worker::init(),
-  ]
+  ];
+  if let Some(extension) = crate::webgpu_init_extension() {
+    extensions.insert(3, extension);
+  }
+  if let Some(extension) = crate::canvas_init_extension() {
+    extensions.insert(5, extension);
+  }
+  extensions
 }

@@ -7,6 +7,7 @@
 //! builds), the ops silently no-op.
 
 use std::borrow::Cow;
+#[cfg(feature = "webgpu")]
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
@@ -18,6 +19,7 @@ use std::sync::atomic::Ordering;
 use deno_core::FromV8;
 use deno_core::OpState;
 use deno_core::ToV8;
+#[cfg(feature = "webgpu")]
 use deno_core::cppgc::SameObject;
 use deno_core::op2;
 use deno_core::serde_json;
@@ -513,6 +515,7 @@ pub struct DesktopAppName(pub String);
 struct BrowserWindow {
   api: Arc<dyn DesktopApi>,
   window_id: u32,
+  #[cfg(feature = "webgpu")]
   surface: SameObject<deno_canvas::byow::UnsafeWindowSurface>,
   /// Set when JS has taken a `getNativeWindow()` surface. Once a webgpu
   /// surface holds the underlying raw window handles, destroying the OS
@@ -520,6 +523,7 @@ struct BrowserWindow {
   /// (use-after-free at present). We refuse to destroy the window in that
   /// case and only hide it; the surface keeps the window alive until JS
   /// releases the BrowserWindow (cppgc) and with it the surface.
+  #[cfg(feature = "webgpu")]
   surface_taken: std::cell::Cell<bool>,
 }
 
@@ -625,7 +629,9 @@ impl BrowserWindow {
     let window = BrowserWindow {
       api,
       window_id,
+      #[cfg(feature = "webgpu")]
       surface: SameObject::new(),
+      #[cfg(feature = "webgpu")]
       surface_taken: std::cell::Cell::new(false),
     };
     let window = deno_core::cppgc::make_cppgc_object(scope, window);
@@ -722,6 +728,7 @@ impl BrowserWindow {
 
   #[fast]
   fn close(&self) {
+    #[cfg(feature = "webgpu")]
     if self.surface_taken.get() {
       // A WebGPU surface is referencing this window's native handles.
       // Destroying the OS window now would dangle those handles. Hide
@@ -816,6 +823,27 @@ impl BrowserWindow {
   }
 
   fn get_native_window(
+    &self,
+    state: &OpState,
+    scope: &mut v8::PinScope<'_, '_>,
+  ) -> Result<v8::Global<v8::Object>, deno_error::JsErrorBox> {
+    #[cfg(feature = "webgpu")]
+    {
+      return self.get_native_window_webgpu(state, scope);
+    }
+    #[cfg(not(feature = "webgpu"))]
+    {
+      let _ = (state, scope);
+      Err(deno_error::JsErrorBox::type_error(
+        "WebGPU is disabled in this build",
+      ))
+    }
+  }
+}
+
+#[cfg(feature = "webgpu")]
+impl BrowserWindow {
+  fn get_native_window_webgpu(
     &self,
     state: &OpState,
     scope: &mut v8::PinScope<'_, '_>,

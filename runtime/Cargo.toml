@@ -10,6 +10,7 @@ repository.workspace = true
 description = "Provides the deno runtime library"
 
 [features]
+default = ["webgpu"]
 # "fake" feature that allows to generate docs on docs.rs
 docsrs = []
 # A feature that allows excluding `./js/99_main.js` from the exported extension.
@@ -22,6 +23,7 @@ snapshot = ["transpile"]
 snapshot_files = ["transpile"]
 quickjs = ["deno_core/quickjs"]
 transpile = ["deno_ast"]
+webgpu = ["dep:deno_canvas", "dep:deno_webgpu", "deno_image/webgpu"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
@@ -38,7 +40,7 @@ color-print.workspace = true
 deno_ast = { workspace = true, optional = true }
 deno_bundle_runtime.workspace = true
 deno_cache.workspace = true
-deno_canvas.workspace = true
+deno_canvas = { workspace = true, optional = true }
 deno_core.workspace = true
 deno_cron.workspace = true
 deno_crypto.workspace = true
@@ -67,7 +69,7 @@ deno_telemetry.workspace = true
 deno_terminal.workspace = true
 deno_tls.workspace = true
 deno_web.workspace = true
-deno_webgpu.workspace = true
+deno_webgpu = { workspace = true, optional = true }
 deno_webidl.workspace = true
 deno_websocket.workspace = true
 deno_webstorage.workspace = true
