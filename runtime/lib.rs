@@ -1,6 +1,7 @@
 // Copyright 2018-2026 the Deno authors. MIT license.
 
 pub use deno_cache;
+#[cfg(feature = "webgpu")]
 pub use deno_canvas;
 pub use deno_core;
 pub use deno_cron;
@@ -23,6 +24,7 @@ pub use deno_telemetry;
 pub use deno_terminal::colors;
 pub use deno_tls;
 pub use deno_web;
+#[cfg(feature = "webgpu")]
 pub use deno_webgpu;
 pub use deno_webidl;
 pub use deno_websocket;
@@ -43,6 +45,52 @@ pub mod snapshot;
 #[cfg(any(feature = "snapshot", feature = "snapshot_files"))]
 pub mod snapshot_files;
 pub mod snapshot_info;
+
+pub(crate) fn webgpu_init_extension() -> Option<deno_core::Extension> {
+  #[cfg(feature = "webgpu")]
+  {
+    Some(deno_webgpu::deno_webgpu::init())
+  }
+  #[cfg(not(feature = "webgpu"))]
+  {
+    None
+  }
+}
+
+pub(crate) fn canvas_init_extension() -> Option<deno_core::Extension> {
+  #[cfg(feature = "webgpu")]
+  {
+    Some(deno_canvas::deno_canvas::init())
+  }
+  #[cfg(not(feature = "webgpu"))]
+  {
+    None
+  }
+}
+
+#[cfg(any(feature = "snapshot", feature = "snapshot_files"))]
+pub(crate) fn webgpu_lazy_extension() -> Option<deno_core::Extension> {
+  #[cfg(feature = "webgpu")]
+  {
+    Some(deno_webgpu::deno_webgpu::lazy_init())
+  }
+  #[cfg(not(feature = "webgpu"))]
+  {
+    None
+  }
+}
+
+#[cfg(any(feature = "snapshot", feature = "snapshot_files"))]
+pub(crate) fn canvas_lazy_extension() -> Option<deno_core::Extension> {
+  #[cfg(feature = "webgpu")]
+  {
+    Some(deno_canvas::deno_canvas::lazy_init())
+  }
+  #[cfg(not(feature = "webgpu"))]
+  {
+    None
+  }
+}
 pub mod tokio_util;
 #[cfg(feature = "transpile")]
 pub mod transpile;

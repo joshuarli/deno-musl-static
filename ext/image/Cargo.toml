@@ -10,6 +10,9 @@ readme = "README.md"
 repository.workspace = true
 description = "Image handling implementation for Deno"
 
+[features]
+webgpu = []
+
 [lib]
 path = "lib.rs"
 

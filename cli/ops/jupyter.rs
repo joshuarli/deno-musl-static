@@ -460,6 +460,7 @@ pub fn op_print(state: &mut OpState, #[string] msg: &str, is_err: bool) {
 
 #[op2]
 #[string]
+#[cfg(feature = "webgpu")]
 pub fn op_jupyter_create_png_from_texture(
   #[cppgc] texture: &deno_runtime::deno_webgpu::texture::GPUTexture,
 ) -> Result<String, JsErrorBox> {
@@ -516,6 +517,7 @@ pub fn op_jupyter_create_png_from_texture(
 }
 
 #[op2]
+#[cfg(feature = "webgpu")]
 pub fn op_jupyter_get_buffer(
   #[cppgc] buffer: &deno_runtime::deno_webgpu::buffer::GPUBuffer,
 ) -> Result<Vec<u8>, deno_runtime::deno_webgpu::error::GPUError> {
@@ -558,4 +560,17 @@ pub fn op_jupyter_get_buffer(
   buffer.instance.buffer_unmap(buffer.id)?;
 
   Ok(data)
+}
+
+#[cfg(not(feature = "webgpu"))]
+#[op2]
+#[string]
+pub fn op_jupyter_create_png_from_texture() -> Result<String, JsErrorBox> {
+  Err(JsErrorBox::type_error("WebGPU is disabled in this build"))
+}
+
+#[cfg(not(feature = "webgpu"))]
+#[op2]
+pub fn op_jupyter_get_buffer() -> Result<Vec<u8>, JsErrorBox> {
+  Err(JsErrorBox::type_error("WebGPU is disabled in this build"))
 }

@@ -4,6 +4,7 @@ import { core, internals, primordials } from "ext:core/mod.js";
 import {
   op_net_listen_udp,
   op_net_listen_unixpacket,
+  op_bootstrap_webgpu_enabled,
   op_runtime_cpu_usage,
   op_runtime_memory_usage,
 } from "ext:core/ops";
@@ -72,7 +73,11 @@ const lazyTelemetry = () =>
   _telemetry ??
     (_telemetry = core.loadExtScript("ext:deno_telemetry/telemetry.ts"));
 import { unstableIds } from "ext:deno_features/flags.js";
-const { loadWebGPU } = core.loadExtScript("ext:deno_webgpu/00_init.js");
+const webgpuEnabled = op_bootstrap_webgpu_enabled();
+const loadWebGPU = () => {
+  if (!webgpuEnabled) return undefined;
+  return core.loadExtScript("ext:deno_webgpu/00_init.js").loadWebGPU();
+};
 import { bundle } from "ext:deno_bundle_runtime/bundle.ts";
 
 const { ObjectDefineProperty, Float64Array } = primordials;
@@ -383,6 +388,10 @@ core.defineGlobalProperties(denoNsUnstableById[unstableIds.webgpu], {
     loadWebGPU,
   ),
 });
+
+if (!webgpuEnabled) {
+  delete denoNsUnstableById[unstableIds.webgpu];
+}
 
 // denoNsUnstableById[unstableIds.workerOptions] = { __proto__: null }
 

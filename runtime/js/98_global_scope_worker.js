@@ -5,6 +5,7 @@ import {
   op_bootstrap_language,
   op_bootstrap_numcpus,
   op_bootstrap_user_agent,
+  op_bootstrap_webgpu_enabled,
 } from "ext:core/ops";
 const {
   ObjectDefineProperties,
@@ -21,7 +22,11 @@ const globalInterfaces = core.loadExtScript(
   "ext:deno_web/04_global_interfaces.js",
 );
 const loadLocks = core.createLazyLoader("ext:deno_web/locks.js");
-const { loadWebGPU } = core.loadExtScript("ext:deno_webgpu/00_init.js");
+const webgpuEnabled = op_bootstrap_webgpu_enabled();
+const loadWebGPU = () =>
+  webgpuEnabled
+    ? core.loadExtScript("ext:deno_webgpu/00_init.js").loadWebGPU()
+    : undefined;
 import {
   NavigatorUAData,
   navigatorUAData,
@@ -185,6 +190,9 @@ ObjectDefineProperties(WorkerNavigator.prototype, {
   },
 });
 const WorkerNavigatorPrototype = WorkerNavigator.prototype;
+if (!webgpuEnabled) {
+  delete WorkerNavigatorPrototype.gpu;
+}
 
 const workerRuntimeGlobalProperties = {
   WorkerLocation: location.workerLocationConstructorDescriptor,

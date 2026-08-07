@@ -12,6 +12,7 @@ deno_core::extension!(
     op_bootstrap_args,
     op_bootstrap_pid,
     op_bootstrap_numcpus,
+    op_bootstrap_webgpu_enabled,
     op_bootstrap_user_agent,
     op_bootstrap_language,
     op_bootstrap_log_level,
@@ -92,6 +93,11 @@ pub fn op_bootstrap_pid() -> u32 {
 #[smi]
 pub fn op_bootstrap_numcpus(state: &mut OpState) -> u32 {
   state.borrow::<BootstrapOptions>().cpu_count as u32
+}
+
+#[op2(fast)]
+pub fn op_bootstrap_webgpu_enabled() -> bool {
+  cfg!(feature = "webgpu")
 }
 
 #[op2]

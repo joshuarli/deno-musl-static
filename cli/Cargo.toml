@@ -31,6 +31,7 @@ v8 = [
   "__runtime_defaults",
   "deno_core/v8",
   "deno_snapshots/v8_snapshot",
+  "webgpu",
   "v8/v8",
 ]
 quickjs = [
@@ -41,6 +42,7 @@ quickjs = [
   "deno_runtime/transpile",
   "v8/quickjs",
 ]
+webgpu = ["dep:deno_webgpu", "deno_runtime/webgpu"]
 # Use the statically linked mimalloc allocator for the native musl QuickJS
 # artifacts. Keep it separate from the general QuickJS feature so other
 # platforms retain Deno's existing allocator policy.
@@ -67,8 +69,8 @@ panic-trace = ["deno_panic"]
 panic-trace-frame-pointer = ["panic-trace", "deno_panic/frame-pointer"]
 
 [build-dependencies]
-deno_runtime = { workspace = true }
-deno_core = { workspace = true }
+deno_napi.workspace = true
+deno_webgpu = { workspace = true, optional = true }
 lazy-regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -76,7 +78,6 @@ zstd.workspace = true
 flate2 = { workspace = true, features = ["default"] }
 deno_error.workspace = true
 sha2.workspace = true
-v8.workspace = true
 
 [target.'cfg(windows)'.build-dependencies]
 winres.workspace = true
@@ -104,7 +105,7 @@ deno_panic = { version = "0.2.1", optional = true }
 deno_path_util.workspace = true
 deno_print.workspace = true
 deno_resolver = { workspace = true, features = ["deno_ast", "graph", "sync"] }
-deno_runtime.workspace = true
+deno_runtime = { workspace = true, default-features = false }
 deno_semver.workspace = true
 deno_signals.workspace = true
 deno_snapshots.workspace = true

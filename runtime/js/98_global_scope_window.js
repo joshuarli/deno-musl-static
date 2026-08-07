@@ -5,6 +5,7 @@ import {
   op_bootstrap_language,
   op_bootstrap_numcpus,
   op_bootstrap_user_agent,
+  op_bootstrap_webgpu_enabled,
 } from "ext:core/ops";
 const {
   ObjectDefineProperties,
@@ -13,6 +14,7 @@ const {
   StringPrototypeToUpperCase,
   StringPrototypeSlice,
 } = primordials;
+const webgpuEnabled = op_bootstrap_webgpu_enabled();
 
 const location = core.loadExtScript("ext:deno_web/12_location.js");
 const console = core.loadExtScript("ext:deno_web/01_console.js");
@@ -37,10 +39,10 @@ const lazyWebStorage = () =>
 let _prompt;
 const lazyPrompt = () =>
   _prompt ?? (_prompt = core.loadExtScript("ext:runtime/41_prompt.js"));
-let _webgpu;
 const lazyWebGPU = () =>
-  (_webgpu ??
-    (_webgpu = core.loadExtScript("ext:deno_webgpu/00_init.js"))).loadWebGPU();
+  webgpuEnabled
+    ? core.loadExtScript("ext:deno_webgpu/00_init.js").loadWebGPU()
+    : undefined;
 function loadWebGPU() {
   return lazyWebGPU();
 }
@@ -203,6 +205,9 @@ ObjectDefineProperties(Navigator.prototype, {
   },
 });
 const NavigatorPrototype = Navigator.prototype;
+if (!webgpuEnabled) {
+  delete NavigatorPrototype.gpu;
+}
 
 const mainRuntimeGlobalProperties = {
   Location: location.locationConstructorDescriptor,

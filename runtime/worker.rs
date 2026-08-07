@@ -1210,14 +1210,12 @@ fn common_extensions<
   // NOTE(bartlomieju): ordering is important here, keep it in sync with
   // `runtime/worker.rs`, `runtime/web_worker.rs`, `runtime/snapshot_info.rs`
   // and `runtime/snapshot.rs`!
-  vec![
+  let mut extensions = vec![
     deno_telemetry::deno_telemetry::init(),
     // Web APIs
     deno_webidl::deno_webidl::init(),
     deno_web::deno_web::lazy_init(),
-    deno_webgpu::deno_webgpu::init(),
     deno_image::deno_image::init(),
-    deno_canvas::deno_canvas::init(),
     deno_fetch::deno_fetch::lazy_init(),
     deno_cache::deno_cache::lazy_init(),
     deno_websocket::deno_websocket::lazy_init(),
@@ -1260,7 +1258,14 @@ fn common_extensions<
     // error because they're not defined. Trying to use these ops in non-worker
     // context will cause a panic.
     ops::web_worker::deno_web_worker::init().disable(),
-  ]
+  ];
+  if let Some(extension) = crate::webgpu_init_extension() {
+    extensions.insert(3, extension);
+  }
+  if let Some(extension) = crate::canvas_init_extension() {
+    extensions.insert(5, extension);
+  }
+  extensions
 }
 
 struct CommonRuntimeOptions {

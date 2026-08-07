@@ -58,16 +58,15 @@ pub use self::diagnostics::Position;
 pub use self::js::TscConstants;
 
 pub fn get_types_declaration_file_text() -> String {
-  concat_lib_texts(&[
+  #[allow(unused_mut)]
+  let mut lib_names = vec![
     "deno.ns",
     "deno.console",
     "deno.url",
     "deno.web",
     "deno.fetch",
-    "deno.webgpu",
     "deno.websocket",
     "deno.webstorage",
-    "deno.canvas",
     "deno.crypto",
     "deno.broadcast_channel",
     "deno.net",
@@ -76,7 +75,10 @@ pub fn get_types_declaration_file_text() -> String {
     "esnext.temporal",
     "deno.window",
     "deno.unstable",
-  ])
+  ];
+  #[cfg(feature = "webgpu")]
+  lib_names.splice(5..5, ["deno.webgpu", "deno.canvas"]);
+  concat_lib_texts(&lib_names)
 }
 
 /// The `Deno` namespace only, without Deno's web-platform globals (`fetch`,
@@ -214,6 +216,7 @@ pub static LAZILY_LOADED_STATIC_ASSETS: Lazy<
       "lib.deno.webstorage.d.ts",
       "lib.deno_webstorage.d.ts"
     ),
+    #[cfg(feature = "webgpu")]
     maybe_compressed_lib!("lib.deno.canvas.d.ts", "lib.deno_canvas.d.ts"),
     maybe_compressed_lib!("lib.deno.crypto.d.ts", "lib.deno_crypto.d.ts"),
     maybe_compressed_lib!(
@@ -222,6 +225,7 @@ pub static LAZILY_LOADED_STATIC_ASSETS: Lazy<
     ),
     maybe_compressed_lib!("lib.deno.net.d.ts", "lib.deno_net.d.ts"),
     maybe_compressed_lib!("lib.deno.cache.d.ts", "lib.deno_cache.d.ts"),
+    #[cfg(feature = "webgpu")]
     maybe_compressed_lib!("lib.deno.webgpu.d.ts", "lib.deno_webgpu.d.ts"),
     maybe_compressed_lib!("lib.deno.window.d.ts"),
     maybe_compressed_lib!("lib.deno.worker.d.ts"),

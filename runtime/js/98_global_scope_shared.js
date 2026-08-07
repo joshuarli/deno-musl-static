@@ -1,7 +1,13 @@
 // Copyright 2018-2026 the Deno authors. MIT license.
 
 import { core, primordials } from "ext:core/mod.js";
-const { SafeArrayIterator } = primordials;
+import { op_bootstrap_webgpu_enabled } from "ext:core/ops";
+const {
+  ObjectKeys,
+  SafeArrayIterator,
+  StringPrototypeStartsWith,
+} = primordials;
+const webgpuEnabled = op_bootstrap_webgpu_enabled();
 
 const event = core.loadExtScript("ext:deno_web/02_event.js");
 const loadBase64 = () => core.loadExtScript("ext:deno_web/05_base64.js");
@@ -93,7 +99,10 @@ const lazyProcessMod = core.createLazyLoader("node:process");
 // that never touches them skips the deserialization entirely.
 const lazyBufferMod = core.createLazyLoader("node:buffer");
 const lazyTimersMod = core.createLazyLoader("node:timers");
-const { loadWebGPU } = core.loadExtScript("ext:deno_webgpu/00_init.js");
+const loadWebGPU = () =>
+  webgpuEnabled
+    ? core.loadExtScript("ext:deno_webgpu/00_init.js").loadWebGPU()
+    : undefined;
 import { unstableIds } from "ext:runtime/90_deno_ns.js";
 
 const loadImage = core.createLazyLoader("ext:deno_image/01_image.js");
@@ -521,6 +530,18 @@ const windowOrWorkerGlobalScope = {
   ),
 };
 
+if (!webgpuEnabled) {
+  for (const name of ObjectKeys(windowOrWorkerGlobalScope)) {
+    if (
+      StringPrototypeStartsWith(name, "GPU") ||
+      name === "OffscreenCanvas" ||
+      name === "ImageBitmapRenderingContext"
+    ) {
+      delete windowOrWorkerGlobalScope[name];
+    }
+  }
+}
+
 const unstableForWindowOrWorkerGlobalScope = { __proto__: null };
 unstableForWindowOrWorkerGlobalScope[unstableIds.net] = {
   WebSocketStream: core.propNonEnumerableLazyLoaded(
@@ -561,7 +582,9 @@ unstableForWindowOrWorkerGlobalScope[unstableIds.net] = {
   ),
 };
 
-unstableForWindowOrWorkerGlobalScope[unstableIds.webgpu] = {};
+if (webgpuEnabled) {
+  unstableForWindowOrWorkerGlobalScope[unstableIds.webgpu] = {};
+}
 
 let _cssStyleSheetMod;
 const loadCssStyleSheet = () =>
