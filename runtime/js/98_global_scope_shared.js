@@ -1,13 +1,17 @@
 // Copyright 2018-2026 the Deno authors. MIT license.
 
 import { core, primordials } from "ext:core/mod.js";
-import { op_bootstrap_webgpu_enabled } from "ext:core/ops";
+import {
+  op_bootstrap_image_enabled,
+  op_bootstrap_webgpu_enabled,
+} from "ext:core/ops";
 const {
   ObjectKeys,
   SafeArrayIterator,
   StringPrototypeStartsWith,
 } = primordials;
 const webgpuEnabled = op_bootstrap_webgpu_enabled();
+const imageEnabled = op_bootstrap_image_enabled();
 
 const event = core.loadExtScript("ext:deno_web/02_event.js");
 const loadBase64 = () => core.loadExtScript("ext:deno_web/05_base64.js");
@@ -540,6 +544,11 @@ if (!webgpuEnabled) {
       delete windowOrWorkerGlobalScope[name];
     }
   }
+}
+
+if (!imageEnabled) {
+  delete windowOrWorkerGlobalScope.ImageBitmap;
+  delete windowOrWorkerGlobalScope.createImageBitmap;
 }
 
 const unstableForWindowOrWorkerGlobalScope = { __proto__: null };

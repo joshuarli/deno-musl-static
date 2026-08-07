@@ -10,6 +10,7 @@ pub use deno_fetch;
 pub use deno_ffi;
 pub use deno_fs;
 pub use deno_http;
+#[cfg(feature = "image")]
 pub use deno_image;
 pub use deno_inspector_server;
 pub use deno_io;
@@ -52,6 +53,29 @@ pub(crate) fn webgpu_init_extension() -> Option<deno_core::Extension> {
     Some(deno_webgpu::deno_webgpu::init())
   }
   #[cfg(not(feature = "webgpu"))]
+  {
+    None
+  }
+}
+
+pub(crate) fn image_init_extension() -> Option<deno_core::Extension> {
+  #[cfg(feature = "image")]
+  {
+    Some(deno_image::deno_image::init())
+  }
+  #[cfg(not(feature = "image"))]
+  {
+    None
+  }
+}
+
+#[cfg(any(feature = "snapshot", feature = "snapshot_files"))]
+pub(crate) fn image_lazy_extension() -> Option<deno_core::Extension> {
+  #[cfg(feature = "image")]
+  {
+    Some(deno_image::deno_image::lazy_init())
+  }
+  #[cfg(not(feature = "image"))]
   {
     None
   }

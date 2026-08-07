@@ -23,7 +23,6 @@ pub fn get_extensions_in_snapshot() -> Vec<Extension> {
       Default::default(),
       deno_web::InMemoryBroadcastChannel::default(),
     ),
-    deno_image::deno_image::init(),
     deno_fetch::deno_fetch::init(Default::default()),
     deno_cache::deno_cache::init(None),
     deno_websocket::deno_websocket::init(),
@@ -67,6 +66,9 @@ pub fn get_extensions_in_snapshot() -> Vec<Extension> {
     runtime::init(),
     ops::web_worker::deno_web_worker::init(),
   ];
+  if let Some(extension) = crate::image_init_extension() {
+    extensions.insert(3, extension);
+  }
   if let Some(extension) = crate::webgpu_init_extension() {
     extensions.insert(3, extension);
   }

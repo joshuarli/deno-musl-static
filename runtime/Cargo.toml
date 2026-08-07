@@ -23,7 +23,8 @@ snapshot = ["transpile"]
 snapshot_files = ["transpile"]
 quickjs = ["deno_core/quickjs"]
 transpile = ["deno_ast"]
-webgpu = ["dep:deno_canvas", "dep:deno_webgpu", "deno_image/webgpu"]
+image = ["dep:deno_image"]
+webgpu = ["dep:deno_canvas", "dep:deno_webgpu", "image", "deno_image/webgpu"]
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tokio_unstable)'] }
@@ -50,7 +51,7 @@ deno_fetch.workspace = true
 deno_ffi.workspace = true
 deno_fs = { workspace = true, features = ["sync_fs"] }
 deno_http.workspace = true
-deno_image.workspace = true
+deno_image = { workspace = true, optional = true }
 deno_inspector_server.workspace = true
 deno_io.workspace = true
 deno_kv.workspace = true

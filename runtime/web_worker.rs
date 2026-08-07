@@ -550,7 +550,6 @@ impl WebWorker {
         Default::default(),
         services.broadcast_channel,
       ),
-      deno_image::deno_image::init(),
       deno_fetch::deno_fetch::init(deno_fetch::Options {
         user_agent: options.bootstrap.user_agent.clone(),
         root_cert_store_provider: services.root_cert_store_provider.clone(),
@@ -624,6 +623,9 @@ impl WebWorker {
       ops::web_worker::deno_web_worker::init(),
     ];
 
+    if let Some(extension) = crate::image_init_extension() {
+      extensions.insert(2, extension);
+    }
     if let Some(extension) = crate::webgpu_init_extension() {
       extensions.insert(2, extension);
     }

@@ -1215,7 +1215,6 @@ fn common_extensions<
     // Web APIs
     deno_webidl::deno_webidl::init(),
     deno_web::deno_web::lazy_init(),
-    deno_image::deno_image::init(),
     deno_fetch::deno_fetch::lazy_init(),
     deno_cache::deno_cache::lazy_init(),
     deno_websocket::deno_websocket::lazy_init(),
@@ -1259,6 +1258,9 @@ fn common_extensions<
     // context will cause a panic.
     ops::web_worker::deno_web_worker::init().disable(),
   ];
+  if let Some(extension) = crate::image_init_extension() {
+    extensions.insert(3, extension);
+  }
   if let Some(extension) = crate::webgpu_init_extension() {
     extensions.insert(3, extension);
   }
