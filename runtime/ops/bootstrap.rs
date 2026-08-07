@@ -12,6 +12,7 @@ deno_core::extension!(
     op_bootstrap_args,
     op_bootstrap_pid,
     op_bootstrap_numcpus,
+    op_bootstrap_image_enabled,
     op_bootstrap_webgpu_enabled,
     op_bootstrap_user_agent,
     op_bootstrap_language,
@@ -98,6 +99,11 @@ pub fn op_bootstrap_numcpus(state: &mut OpState) -> u32 {
 #[op2(fast)]
 pub fn op_bootstrap_webgpu_enabled() -> bool {
   cfg!(feature = "webgpu")
+}
+
+#[op2(fast)]
+pub fn op_bootstrap_image_enabled() -> bool {
+  cfg!(feature = "image")
 }
 
 #[op2]
