@@ -3,6 +3,8 @@ set -eu
 
 # Build a debug Deno CLI first. The optional denort build is enabled explicitly
 # once the faster single-binary iteration reaches the link and ELF checks.
+RUST_TARGET="${RUST_TARGET:-${CARGO_BUILD_TARGET:?CARGO_BUILD_TARGET must be set}}"
+
 if [ -d target ]; then
   find target -type d -name 'stacker-*' -prune -exec rm -rf '{}' +
   find target -type f \( -name 'libstacker-*' -o -name 'stacker-*' \) -delete
