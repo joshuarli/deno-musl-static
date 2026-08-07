@@ -239,6 +239,12 @@ image and `tools/docker/build-alpine-aarch64-musl.sh` remain implementation
 details behind those targets. Eager QuickJS extension sources are embedded, so
 the smoke container does not need the build-time source tree.
 
+The native QuickJS backend is optimized independently of Rust: `v8x` builds
+its vendored QuickJS C sources with `cc::Build::opt_level(3)`, builds WAMR with
+CMake's `Release` configuration, and uses `-O3` for its native glue where that
+path is selected. The `release-quickjs` Cargo profile therefore covers the Rust
+side without accidentally assuming it controls the C/C++ backend.
+
 The builder exports only:
 
 ```text
