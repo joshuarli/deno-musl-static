@@ -31,6 +31,7 @@ v8 = [
   "__runtime_defaults",
   "deno_core/v8",
   "deno_snapshots/v8_snapshot",
+  "lsp",
   "webgpu",
   "v8/v8",
 ]
@@ -42,6 +43,8 @@ quickjs = [
   "deno_runtime/transpile",
   "v8/quickjs",
 ]
+lint = ["dep:deno_lint"]
+lsp = ["lint"]
 webgpu = ["dep:deno_webgpu", "deno_runtime/webgpu"]
 # Use the statically linked mimalloc allocator for the native musl QuickJS
 # artifacts. Keep it separate from the general QuickJS feature so other
@@ -93,7 +96,7 @@ deno_doc = { workspace = true, features = ["rust", "comrak"] }
 deno_error.workspace = true
 deno_graph = { workspace = true, features = ["fast_check"] }
 deno_lib.workspace = true
-deno_lint.workspace = true
+deno_lint = { workspace = true, optional = true }
 deno_lockfile.workspace = true
 deno_media_type = { workspace = true, features = ["data_url", "decoding", "module_specifier"] }
 deno_npm.workspace = true

@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
-use deno_ast::diagnostics::Diagnostic;
 use deno_config::glob::FileCollector;
 use deno_config::workspace::JsrPackageConfig;
 use deno_core::anyhow::Context;
@@ -24,6 +23,7 @@ use crate::args::resolve_file_patterns;
 use crate::factory::CliFactory;
 use crate::graph_util::CreatePublishGraphOptions;
 use crate::sys::CliSys;
+#[cfg(feature = "lint")]
 use crate::tools::lint::collect_no_slow_type_diagnostics;
 use crate::util::display::human_size;
 
@@ -222,13 +222,19 @@ fn warn_for_slow_type_diagnostics(
   package: &JsrPackageConfig,
   pack_flags: &PackFlags,
 ) -> Result<(), AnyError> {
-  if pack_flags.allow_slow_types {
-    return Ok(());
-  }
+  #[cfg(not(feature = "lint"))]
+  let _ = (graph, package, pack_flags);
 
-  let export_urls = package.config_file.resolve_export_value_urls()?;
-  for diagnostic in collect_no_slow_type_diagnostics(graph, &export_urls) {
-    log::warn!("{}", diagnostic.display());
+  #[cfg(feature = "lint")]
+  {
+    if pack_flags.allow_slow_types {
+      return Ok(());
+    }
+
+    let export_urls = package.config_file.resolve_export_value_urls()?;
+    for diagnostic in collect_no_slow_type_diagnostics(graph, &export_urls) {
+      log::warn!("{}", diagnostic.display());
+    }
   }
 
   Ok(())
