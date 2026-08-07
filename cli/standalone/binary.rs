@@ -463,12 +463,6 @@ impl<'a> DenoCompileBinaryWriter<'a> {
     // Phase 2 of the 'min sized' deno compile RFC talks
     // about adding this as a flag.
     if let Some(path) = get_dev_binary_path() {
-      if compile_flags.engine == JavaScriptEngine::QuickJs {
-        log::warn!(
-          "--engine quickjs is ignored when using the development denort at {}",
-          path.to_string_lossy()
-        );
-      }
       log::debug!("Resolved denort: {}", path.to_string_lossy());
       return std::fs::read(&path).with_context(|| {
         format!("Could not find denort at '{}'", path.to_string_lossy())
@@ -526,12 +520,6 @@ impl<'a> DenoCompileBinaryWriter<'a> {
     // For development: check DENORT_DESKTOP_BIN env var or look
     // for libdenort next to the deno executable.
     if let Some(path) = get_dev_desktop_binary_path() {
-      if compile_flags.engine == JavaScriptEngine::QuickJs {
-        log::warn!(
-          "--engine quickjs is ignored when using the development libdenort at {}",
-          path.to_string_lossy()
-        );
-      }
       log::debug!("Resolved libdenort: {}", path.to_string_lossy());
       return std::fs::read(&path).with_context(|| {
         format!("Could not find libdenort at '{}'", path.to_string_lossy())

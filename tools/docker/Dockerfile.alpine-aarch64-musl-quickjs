@@ -1,0 +1,111 @@
+# Native aarch64 musl QuickJS build image for Deno.
+#
+# This image deliberately contains no V8, GN, Chromium sysroot, or V8 patch
+# setup. QuickJS is built by the runtime command with only its native C/C++
+# and Rust dependencies available.
+FROM alpine:latest
+
+ARG LLVM_VERSION=22.1.8
+ARG LLVM_MAJOR=22
+ARG LLVM_URL=https://github.com/laputa-systems/llvm-prebuilt-musl/releases/download/llvm-musl-22.1.8/clang%2Bllvm-22.1.8-aarch64-linux-musl.tar.xz
+ARG LLVM_SHA256=675f9cf871313a5672a63882d4d30dd6dd55df0aa9caee70970542eb03a23da3
+ARG LLVM_SIZE=73611888
+ARG RUST_TARGET=aarch64-alpine-linux-musl
+ARG BUILD_DENORT=1
+ARG BUILD_PROFILE=debug
+
+# Keep this list limited to the native toolchain and the Deno/QuickJS build
+# inputs. GN, Chromium's source-build helpers, and V8's system libraries are
+# intentionally absent from the QuickJS image.
+RUN apk add --no-cache \
+    binutils \
+    build-base \
+    ccache \
+    ca-certificates \
+    clang22-libclang \
+    cargo \
+    cmake \
+    curl \
+    file \
+    git \
+    icu-dev \
+    lcms2-dev \
+    linux-headers \
+    patch \
+    pkgconf \
+    rust \
+    sqlite-dev \
+    xz \
+    zlib-dev \
+    zlib-static \
+    zlib-ng-dev \
+    zstd-dev \
+  && update-ca-certificates
+
+# The bundle supplies the static libc++/libc++abi/unwind archives and
+# compiler-rt builtins needed by the final clang++ link.
+RUN set -eux; \
+    mkdir -p /opt/llvm-musl; \
+    curl -fsSL "${LLVM_URL}" -o /tmp/llvm-musl.tar.xz; \
+    test "$(stat -c %s /tmp/llvm-musl.tar.xz)" = "${LLVM_SIZE}"; \
+    echo "${LLVM_SHA256}  /tmp/llvm-musl.tar.xz" | sha256sum -c -; \
+    tar -xJf /tmp/llvm-musl.tar.xz -C /opt/llvm-musl --strip-components=1; \
+    rm -f /tmp/llvm-musl.tar.xz; \
+    test "$(/opt/llvm-musl/bin/clang -dumpmachine)" = "aarch64-unknown-linux-musl"; \
+    test -f /opt/llvm-musl/lib/libc++.a; \
+    test -f /opt/llvm-musl/lib/libc++abi.a; \
+    test -f /opt/llvm-musl/lib/libunwind.a; \
+    test -f /opt/llvm-musl/lib/clang/${LLVM_MAJOR}/lib/linux/libclang_rt.builtins-aarch64.a
+
+ENV PATH="/opt/llvm-musl/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    AR="/opt/llvm-musl/bin/llvm-ar" \
+    CC="/opt/llvm-musl/bin/clang" \
+    CXX="/opt/llvm-musl/bin/clang++" \
+    LD="/opt/llvm-musl/bin/clang++" \
+    NM="/opt/llvm-musl/bin/llvm-nm" \
+    RANLIB="/opt/llvm-musl/bin/llvm-ranlib" \
+    STRIP="/opt/llvm-musl/bin/llvm-strip" \
+    OBJCOPY="/opt/llvm-musl/bin/llvm-objcopy" \
+    CFLAGS="-Wno-unknown-warning-option" \
+    CXXFLAGS="-Wno-unknown-warning-option" \
+    LIBRARY_PATH="/opt/llvm-musl/lib" \
+    LIBCLANG_PATH="/usr/lib/llvm22/lib" \
+    CCACHE_DIR="/ccache" \
+    CCACHE_TEMPDIR="/ccache/tmp" \
+    CCACHE_COMPILERCHECK=content \
+    CCACHE_COMPRESS=true \
+    CCACHE_COMPRESSLEVEL=1 \
+    CCACHE_MAXSIZE=10G \
+    CCACHE_CC="/opt/llvm-musl/bin/clang" \
+    CCACHE_CXX="/opt/llvm-musl/bin/clang++" \
+    CCACHE_NAMESPACE="aarch64-${LLVM_SHA256}" \
+    CARGO_BUILD_TARGET=${RUST_TARGET} \
+    CARGO_TERM_COLOR=always \
+    RUST_MIN_STACK=4194304 \
+    BUILD_PROFILE=${BUILD_PROFILE} \
+    BUILD_DENORT=${BUILD_DENORT} \
+    ENGINE=quickjs \
+    ARTIFACT_ARCH=aarch64 \
+    CARGO_BUILD_JOBS=4
+
+WORKDIR /src/deno
+COPY . .
+
+RUN set -eux; \
+    rustc -vV; \
+    clang --version; \
+    clang -dumpmachine; \
+    llvm-ar --version; \
+    ccache --version; \
+    rustc --print host-tuple; \
+    test "$(rustc --print host-tuple)" = "${RUST_TARGET}"
+
+COPY tools/docker/build-alpine-musl.sh /usr/local/bin/build-alpine-musl
+RUN chmod 0755 /usr/local/bin/build-alpine-musl
+RUN --mount=type=cache,id=deno-cargo-registry,target=/root/.cargo/registry,sharing=locked \
+    --mount=type=cache,id=deno-cargo-git,target=/root/.cargo/git,sharing=locked \
+    --mount=type=cache,id=deno-aarch64-quickjs-target,target=/src/deno/target,sharing=locked \
+    --mount=type=cache,id=deno-aarch64-quickjs-target-quickjs,target=/src/deno/target-quickjs,sharing=locked \
+    --mount=type=cache,id=deno-aarch64-quickjs-ccache,target=/ccache,sharing=locked \
+    /usr/local/bin/build-alpine-musl
+CMD ["/bin/true"]

@@ -11,12 +11,22 @@ fn main() {
     println!("cargo:rerun-if-env-changed=DENO_SNAPSHOT_IMPORT_GRAPH");
     println!("cargo:rerun-if-env-changed=DENO_SNAPSHOT_MINIFY_SOURCES");
   }
+  let out_dir = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+  let residual_path = out_dir.join("EXTENSION_RESIDUAL_SOURCES.rs");
+  #[cfg(feature = "disable")]
+  {
+    let extensions = deno_runtime::snapshot_files::runtime_extensions(None);
+    let lazy_extension_files =
+      deno_runtime::snapshot_files::collect_lazy_extension_files(&extensions);
+    generate_residual_sources(
+      residual_path,
+      lazy_extension_files,
+      std::collections::HashSet::new(),
+    );
+  }
   #[cfg(not(feature = "disable"))]
   {
-    let o = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
-    let cli_snapshot_path = o.join("CLI_SNAPSHOT.bin");
-    let residual_path = o.join("EXTENSION_RESIDUAL_SOURCES.rs");
-    create_cli_snapshot(cli_snapshot_path, residual_path);
+    create_cli_snapshot(out_dir.join("CLI_SNAPSHOT.bin"), residual_path);
   }
 }
 
@@ -29,8 +39,6 @@ fn create_cli_snapshot(
   use std::io::Write;
 
   use deno_runtime::ops::bootstrap::SnapshotOptions;
-  use deno_runtime::snapshot::LazyExtensionFileKind;
-
   let snapshot_options = SnapshotOptions {
     ts_version: shared::TS_VERSION.to_string(),
     v8_version: deno_runtime::deno_core::v8::VERSION_STRING,
@@ -51,6 +59,26 @@ fn create_cli_snapshot(
 
   assert_consumed_set_unchanged(&consumed);
 
+  let consumed = output
+    .consumed_lazy_specifiers
+    .into_iter()
+    .collect::<HashSet<_>>();
+  generate_residual_sources(
+    residual_path,
+    output.lazy_extension_files,
+    consumed,
+  );
+}
+
+fn generate_residual_sources(
+  residual_path: std::path::PathBuf,
+  lazy_extension_files: Vec<deno_runtime::snapshot_files::LazyExtensionFile>,
+  consumed: std::collections::HashSet<String>,
+) {
+  use std::io::Write;
+
+  use deno_runtime::snapshot_files::LazyExtensionFileKind;
+
   let out_dir = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
   let residual_sources_dir = out_dir.join("residual_sources");
   std::fs::create_dir_all(&residual_sources_dir).unwrap();
@@ -59,7 +87,7 @@ fn create_cli_snapshot(
 
   let mut residual_js: Vec<(&str, std::path::PathBuf)> = Vec::new();
   let mut residual_esm: Vec<(&str, std::path::PathBuf)> = Vec::new();
-  for file in &output.lazy_extension_files {
+  for file in &lazy_extension_files {
     if consumed.contains(file.specifier.as_str()) {
       continue;
     }
@@ -222,7 +250,6 @@ fn assert_consumed_set_unchanged(consumed: &std::collections::HashSet<&str>) {
   );
 }
 
-#[cfg(not(feature = "disable"))]
 fn transpile_residual_source(
   out_dir: &std::path::Path,
   specifier: &str,
@@ -262,7 +289,6 @@ fn transpile_residual_source(
   out_path
 }
 
-#[cfg(not(feature = "disable"))]
 fn wrap_residual_js_source(path: &std::path::Path) {
   use deno_runtime::deno_core::wrap_lazy_ext_script;
   let source = std::fs::read_to_string(path).unwrap();
@@ -270,7 +296,6 @@ fn wrap_residual_js_source(path: &std::path::Path) {
   std::fs::write(path, wrapped.as_bytes()).unwrap();
 }
 
-#[cfg(not(feature = "disable"))]
 fn assert_residual_entry_ascii(path: &std::path::Path, specifier: &str) {
   assert!(
     specifier.is_ascii(),
@@ -284,7 +309,6 @@ fn assert_residual_entry_ascii(path: &std::path::Path, specifier: &str) {
   );
 }
 
-#[cfg(not(feature = "disable"))]
 fn write_residual_table(
   f: &mut std::fs::File,
   out_dir: &std::path::Path,

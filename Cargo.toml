@@ -171,7 +171,7 @@ deno_permissions = { version = "0.116.0", path = "./runtime/permissions" }
 deno_print = { version = "0.5.0", path = "./libs/print" }
 deno_resolver = { version = "0.88.0", path = "./libs/resolver" }
 deno_runtime = { version = "0.265.0", path = "./runtime" }
-deno_snapshots = { version = "0.72.0", path = "./cli/snapshot" }
+deno_snapshots = { version = "0.72.0", path = "./cli/snapshot", default-features = false }
 deno_subprocess_windows = { path = "./runtime/subprocess_windows", version = "0.52.0" }
 eszip = { version = "0.135.0", path = "./libs/eszip" }
 napi_sym = { version = "0.187.0", path = "./ext/napi/sym" }
@@ -381,6 +381,7 @@ lax-css = "=0.3.0"
 lax-markup = "=0.3.2"
 lax-sql = "=0.3.0"
 libsui = "=0.16.4"
+mimalloc = "=0.1.52"
 object = { version = "0.36.3", default-features = false, features = ["read_core", "pe"] }
 open = "5.0.1"
 pathdiff = "0.2.1"
@@ -478,22 +479,32 @@ winres = "=0.1.12"
 
 # NB: the `bench` and `release` profiles must remain EXACTLY the same.
 [profile.release]
-codegen-units = 1
 incremental = false
-lto = true
+lto = "thin"
 opt-level = 'z' # Optimize for size
 split-debuginfo = "packed"
-debug = "line-tables-only"
+debug = 0
+strip = "symbols"
 panic = "abort"
+
+# QuickJS is the only engine linked by the musl QuickJS artifacts. Keep this
+# profile separate from the general size-optimized release profile because
+# pi-deno values runtime throughput more than the smallest possible binary.
+[profile.release-quickjs]
+inherits = "release"
+opt-level = 3
+debug = 0
+strip = "symbols"
+lto = "thin"
 
 # NB: the `bench` and `release` profiles must remain EXACTLY the same.
 [profile.bench]
-codegen-units = 1
 incremental = false
-lto = true
+lto = "thin"
 opt-level = 'z' # Optimize for size
 split-debuginfo = "packed"
-debug = "line-tables-only"
+debug = 0
+strip = "symbols"
 panic = "abort"
 
 [profile.bench.package.deno_npm]
@@ -503,6 +514,7 @@ opt-level = 3
 [profile.release-with-debug]
 inherits = "release-lite"
 debug = true
+strip = "none"
 
 # Faster to compile than `release` but with similar performance.
 [profile.release-lite]
@@ -512,6 +524,8 @@ inherits = "release"
 incremental = true
 codegen-units = 128
 lto = "thin"
+debug = "line-tables-only"
+strip = "none"
 
 [profile.release-lite.package.deno_npm]
 opt-level = 3

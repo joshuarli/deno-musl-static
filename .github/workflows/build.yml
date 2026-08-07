@@ -1,0 +1,202 @@
+name: Build Deno engine artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }} ${{ matrix.engine }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            engine: quickjs
+            smoke_target: musl-aarch64-quickjs-release-smoke
+            artifact_name: deno-musl-aarch64-quickjs
+            dockerfile: tools/docker/Dockerfile.alpine-aarch64-musl-quickjs
+          - arch: aarch64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            engine: v8
+            smoke_target: musl-aarch64-v8-release-smoke
+            artifact_name: deno-musl-aarch64-v8
+            dockerfile: tools/docker/Dockerfile.alpine-aarch64-musl-v8
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            engine: quickjs
+            smoke_target: musl-amd64-quickjs-release-smoke
+            artifact_name: deno-musl-amd64-quickjs
+            dockerfile: tools/docker/Dockerfile.alpine-x86_64-musl-quickjs
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-24.04
+            engine: v8
+            smoke_target: musl-amd64-v8-release-smoke
+            artifact_name: deno-musl-amd64-v8
+            dockerfile: tools/docker/Dockerfile.alpine-x86_64-musl-v8
+          - arch: aarch64
+            platform: macos
+            runner: macos-26
+            engine: quickjs
+            smoke_target: macos-aarch64-quickjs-release-smoke
+            artifact_name: deno-macos-aarch64-quickjs
+          - arch: aarch64
+            platform: macos
+            runner: macos-26
+            engine: v8
+            smoke_target: macos-aarch64-v8-release-smoke
+            artifact_name: deno-macos-aarch64-v8
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+
+    steps:
+      - name: Install macOS linker
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          brew install lld
+          lld_bin_dir="$(brew --prefix lld)/bin"
+          echo "$lld_bin_dir" >> "$GITHUB_PATH"
+          export PATH="$lld_bin_dir:$PATH"
+          lld --version
+
+      - name: Fetch source
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          source_dir="$RUNNER_TEMP/deno-musl-build/source"
+          mkdir -p "$(dirname "$source_dir")"
+          git init "$source_dir"
+          git -C "$source_dir" remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          git -C "$source_dir" fetch --depth=1 origin "$GITHUB_SHA"
+          git -C "$source_dir" checkout --detach FETCH_HEAD
+
+      - name: Set up Docker Buildx
+        if: matrix.platform != 'macos'
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Linux BuildKit mounts
+        if: matrix.platform != 'macos'
+        id: buildkit-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/deno-musl-build/buildkit-cache
+          key: deno-musl-buildkit-${{ matrix.arch }}-${{ matrix.engine }}-${{ github.sha }}
+          restore-keys: |
+            deno-musl-buildkit-${{ matrix.arch }}-${{ matrix.engine }}-
+
+      - name: Restore Linux BuildKit mounts
+        if: matrix.platform != 'macos'
+        uses: reproducible-containers/buildkit-cache-dance@v3
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          cache-dir: ${{ runner.temp }}/deno-musl-build/buildkit-cache
+          dockerfile: ${{ runner.temp }}/deno-musl-build/source/${{ matrix.dockerfile }}
+          skip-extraction: ${{ steps.buildkit-cache.outputs.cache-hit }}
+
+      - name: Cache macOS Rust build artifacts
+        if: matrix.platform == 'macos'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ${{ runner.temp }}/deno-musl-build/source -> target/macos-aarch64-${{ matrix.engine }}
+          shared-key: deno-macos-aarch64-${{ matrix.engine }}
+
+      - name: Build and smoke-test the artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          work_dir="$RUNNER_TEMP/deno-musl-build"
+          artifact_dir="$work_dir/artifact"
+          archive_dir="$work_dir/archive"
+          image="deno-musl-static:${GITHUB_RUN_ID}-${{ matrix.arch }}-${{ matrix.engine }}"
+
+          mkdir -p "$work_dir" "$artifact_dir" "$archive_dir"
+
+          cd "$work_dir/source"
+          if [ "${{ matrix.platform }}" = macos ]; then
+            make "${{ matrix.smoke_target }}" \
+              MACOS_ARTIFACT_DIR="$artifact_dir"
+          else
+            DOCKER_BUILD="docker buildx build --builder ${{ steps.buildx.outputs.name }}" \
+            DOCKER_BUILD_CACHE_ARGS='--cache-from type=gha,scope=deno-musl-${{ matrix.arch }}-${{ matrix.engine }} --cache-to type=gha,mode=max,scope=deno-musl-${{ matrix.arch }}-${{ matrix.engine }}' \
+            make "${{ matrix.smoke_target }}" \
+              MUSL_IMAGE="$image" \
+              MUSL_ARTIFACT_DIR="$artifact_dir"
+          fi
+
+          for artifact in "$artifact_dir"/deno-* "$artifact_dir"/denort-*; do
+            test -x "$artifact"
+            file "$artifact"
+            zip -9 -j "$archive_dir/$(basename "$artifact").zip" "$artifact"
+          done
+          test "$(find "$archive_dir" -maxdepth 1 -type f -name '*.zip' | wc -l)" -eq 2
+
+      - name: Upload ${{ matrix.arch }} ${{ matrix.engine }} ZIPs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ runner.temp }}/deno-musl-build/archive/*.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish Deno engine artifacts
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create the prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          release_name="deno-${GITHUB_SHA}-linux-musl-static"
+          mapfile -d '' release_files < <(find artifacts -type f -name '*.zip' -print0 | sort -z)
+          test "${#release_files[@]}" -eq 12
+          expected_assets=(
+            deno-quickjs-aarch64-unknown-linux-musl.zip
+            denort-quickjs-aarch64-unknown-linux-musl.zip
+            deno-v8-aarch64-unknown-linux-musl.zip
+            denort-v8-aarch64-unknown-linux-musl.zip
+            deno-quickjs-x86_64-unknown-linux-musl.zip
+            denort-quickjs-x86_64-unknown-linux-musl.zip
+            deno-v8-x86_64-unknown-linux-musl.zip
+            denort-v8-x86_64-unknown-linux-musl.zip
+            deno-quickjs-aarch64-apple-darwin.zip
+            denort-quickjs-aarch64-apple-darwin.zip
+            deno-v8-aarch64-apple-darwin.zip
+            denort-v8-aarch64-apple-darwin.zip
+          )
+          actual_assets=()
+          for release_file in "${release_files[@]}"; do
+            actual_assets+=("$(basename "$release_file")")
+            unzip -tq "$release_file"
+          done
+          diff -u \
+            <(printf '%s\n' "${expected_assets[@]}" | LC_ALL=C sort) \
+            <(printf '%s\n' "${actual_assets[@]}" | LC_ALL=C sort)
+          gh release create "$release_name" \
+            "${release_files[@]}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$release_name" \
+            --notes "Static Linux aarch64 and x86_64 QuickJS/V8 plus macOS 26+ aarch64 QuickJS/V8 Deno compiler/runtime pairs built from $GITHUB_SHA." \
+            --prerelease

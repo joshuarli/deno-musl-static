@@ -14,7 +14,14 @@ description = "v8 snapshot used by the Deno CLI"
 path = "lib.rs"
 
 [features]
-disable = []
+default = ["v8_snapshot"]
+v8_snapshot = ["deno_runtime/snapshot", "deno_core/v8"]
+disable = [
+  "deno_core/quickjs",
+  "deno_runtime/quickjs",
+  "deno_runtime/snapshot_files",
+]
 
 [build-dependencies]
-deno_runtime = { workspace = true, features = ["snapshot"] }
+deno_runtime.workspace = true
+deno_core.workspace = true

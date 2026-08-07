@@ -40,6 +40,8 @@ pub mod ops;
 pub mod permissions;
 #[cfg(feature = "snapshot")]
 pub mod snapshot;
+#[cfg(any(feature = "snapshot", feature = "snapshot_files"))]
+pub mod snapshot_files;
 pub mod snapshot_info;
 pub mod tokio_util;
 #[cfg(feature = "transpile")]

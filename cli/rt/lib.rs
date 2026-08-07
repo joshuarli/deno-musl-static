@@ -13,6 +13,10 @@ use deno_runtime::tokio_util::create_and_run_current_thread_with_maybe_metrics;
 use deno_terminal::colors;
 use indexmap::IndexMap;
 
+#[cfg(feature = "musl-mimalloc")]
+#[global_allocator]
+static MIMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use self::binary::extract_standalone;
 use self::file_system::DenoRtSys;
 

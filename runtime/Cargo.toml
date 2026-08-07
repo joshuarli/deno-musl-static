@@ -19,6 +19,8 @@ exclude_runtime_main_js = []
 # from disk via their `LoadedFromFsDuringSnapshot` paths.
 hmr = ["transpile"]
 snapshot = ["transpile"]
+snapshot_files = ["transpile"]
+quickjs = ["deno_core/quickjs"]
 transpile = ["deno_ast"]
 
 [lints.rust]

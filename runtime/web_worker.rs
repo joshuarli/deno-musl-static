@@ -73,9 +73,9 @@ use crate::deno_inspector_server::MainInspectorSessionChannel;
 use crate::ops;
 use crate::shared::runtime;
 use crate::worker::FormatJsErrorFn;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 use crate::worker::MEMORY_TRIM_HANDLER_ENABLED;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
 use crate::worker::SIGUSR2_RX;
 use crate::worker::create_op_metrics;
 use crate::worker::create_validate_import_attributes_callback;
@@ -901,7 +901,7 @@ impl WebWorker {
     Some(cpu_profiler)
   }
 
-  #[cfg(not(target_os = "linux"))]
+  #[cfg(not(all(target_os = "linux", target_env = "gnu")))]
   pub fn setup_memory_trim_handler(&mut self) {
     // Noop
   }
@@ -910,7 +910,7 @@ impl WebWorker {
   /// memory and notifying V8 of low memory conditions.
   /// Note that this must be called within a tokio runtime.
   /// Calling this method multiple times will be a no-op.
-  #[cfg(target_os = "linux")]
+  #[cfg(all(target_os = "linux", target_env = "gnu"))]
   pub fn setup_memory_trim_handler(&mut self) {
     if self.memory_trim_handle.is_some() {
       return;

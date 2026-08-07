@@ -27,8 +27,24 @@ harness = false
 default = ["v8"]
 # The dependency named `v8` is the deno_v8 facade, retained under the existing
 # crate name so the engine integration does not require source-level churn.
-v8 = ["__runtime_defaults", "deno_core/v8", "v8/v8"]
-quickjs = ["__runtime_defaults", "deno_core/quickjs", "v8/quickjs"]
+v8 = [
+  "__runtime_defaults",
+  "deno_core/v8",
+  "deno_snapshots/v8_snapshot",
+  "v8/v8",
+]
+quickjs = [
+  "__runtime_defaults",
+  "deno_core/quickjs",
+  "deno_snapshots/disable",
+  "deno_runtime/quickjs",
+  "deno_runtime/transpile",
+  "v8/quickjs",
+]
+# Use the statically linked mimalloc allocator for the native musl QuickJS
+# artifacts. Keep it separate from the general QuickJS feature so other
+# platforms retain Deno's existing allocator policy.
+musl-mimalloc = ["dep:mimalloc"]
 __runtime_defaults = ["upgrade", "__vendored_zlib_ng"]
 # A feature that enables heap profiling with dhat on Linux.
 # 1. Compile with `cargo build --profile=release-with-debug --features=dhat-heap`
@@ -152,6 +168,7 @@ lazy-regex.workspace = true
 libc.workspace = true
 liblzma.workspace = true
 libz-sys.workspace = true
+mimalloc = { workspace = true, optional = true }
 locked-tripwire = "0.1.1"
 log = { workspace = true, features = ["serde"] }
 lsp-types.workspace = true
