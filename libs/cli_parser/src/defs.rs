@@ -11,8 +11,19 @@ use crate::types::*;
 const EXECUTABLE_EXTS: &[&str] =
   &["ts", "tsx", "js", "jsx", "mts", "mjs", "cts", "cjs"];
 
-/// Supported `--target` triples for `compile`/`desktop` (clap's `SUPPORTED_OS`).
-const SUPPORTED_OS: &[&str] = &[
+/// Supported `--target` triples for `deno compile`.
+const COMPILE_SUPPORTED_OS: &[&str] = &[
+  "x86_64-unknown-linux-gnu",
+  "aarch64-unknown-linux-gnu",
+  "aarch64-unknown-linux-musl",
+  "x86_64-pc-windows-msvc",
+  "aarch64-pc-windows-msvc",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+];
+
+/// Supported `--target` triples for `deno desktop`.
+const DESKTOP_SUPPORTED_OS: &[&str] = &[
   "x86_64-unknown-linux-gnu",
   "aarch64-unknown-linux-gnu",
   "x86_64-pc-windows-msvc",
@@ -1776,7 +1787,7 @@ pub static COMPILE_SUBCOMMAND: CommandDef = CommandDef {
       .long("target")
       .action(ArgAction::Set)
       .num_args(NumArgs::Exact(1))
-      .value_parser(ValueParser::Choices(SUPPORTED_OS))
+      .value_parser(ValueParser::Choices(COMPILE_SUPPORTED_OS))
 .help("Target OS architecture"),
     ArgDef::new("engine")
       .long("engine")
@@ -3087,7 +3098,7 @@ pub static DESKTOP_SUBCOMMAND: CommandDef = CommandDef {
       .long("target")
       .action(ArgAction::Set)
       .num_args(NumArgs::Exact(1))
-      .value_parser(ValueParser::Choices(SUPPORTED_OS))
+      .value_parser(ValueParser::Choices(DESKTOP_SUPPORTED_OS))
 .help("Target OS architecture"),
     ArgDef::new("no-code-cache")
       .long("no-code-cache")

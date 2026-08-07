@@ -1,0 +1,31 @@
+From: Jakub Jirutka <jakub@jirutka.cz>
+Subject: Make stacker stack-overflow handling musl-safe
+
+These are the two Alpine patches for stacker 0.1.15. The first avoids an
+unsigned underflow when the stack pointer has already crossed the discovered
+limit. The second avoids the Linux pthread stack-limit probe on musl, where
+the probe is not reliable for this use.
+
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -89,5 +89,10 @@
+ /// to determine whether a stack switch should be made or not.
+ pub fn remaining_stack() -> Option<usize> {
+     let current_ptr = current_stack_ptr();
+-    get_stack_limit().map(|limit| current_ptr - limit)
++    get_stack_limit().map(|limit| {
++        if current_ptr < limit {
++            panic!("stack overflow!");
++        }
++        current_ptr - limit
++    })
+ }
+@@ -409,7 +409,7 @@
+             );
+             Some(mi.assume_init().AllocationBase as usize + get_thread_stack_guarantee() + 0x1000)
+         }
+-    } else if #[cfg(any(target_os = "linux", target_os="solaris", target_os = "netbsd"))] {
++    } else if #[cfg(any(all(target_os = "linux", target_env = "gnu"), target_os="solaris", target_os = "netbsd"))] {
+         unsafe fn guess_os_stack_limit() -> Option<usize> {
+             let mut attr = std::mem::MaybeUninit::<libc::pthread_attr_t>::uninit();
+             assert_eq!(libc::pthread_attr_init(attr.as_mut_ptr()), 0);

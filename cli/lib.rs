@@ -85,6 +85,10 @@ use crate::util::v8::init_v8_flags;
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
+#[cfg(all(feature = "musl-mimalloc", not(feature = "dhat-heap")))]
+#[global_allocator]
+static MIMALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 /// Ensures that all subcommands return an i32 exit code and an [`AnyError`] error type.
 trait SubcommandOutput {
   fn output(self) -> Result<i32, AnyError>;

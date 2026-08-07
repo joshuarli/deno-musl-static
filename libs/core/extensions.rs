@@ -937,6 +937,22 @@ macro_rules! include_js_files {
 ///
 /// See [`include_js_files!`] for details on available options.
 #[macro_export]
+#[cfg(feature = "quickjs")]
+macro_rules! include_lazy_loaded_js_files {
+  ($name:ident $( dir $dir:literal, )? $(
+    $s1:literal
+    $(with_specifier $s2:literal)?
+    $(= $config:tt)?
+  ),* $(,)?) => {
+    $crate::__extension_include_js_files_inner!(mode=included, name=$name, dir=$crate::__extension_root_dir!($($dir)?), $([
+      // These entries will be parsed in __extension_include_js_files_inner
+      $s1 $(with_specifier $s2)? $(= $config)?
+    ]),*)
+  };
+}
+
+#[macro_export]
+#[cfg(not(feature = "quickjs"))]
 macro_rules! include_lazy_loaded_js_files {
   ($name:ident $( dir $dir:literal, )? $(
     $s1:literal
@@ -971,6 +987,14 @@ macro_rules! include_js_files_doctest {
 /// snapshot bytes (for `esm`/`js`) or the residual lazy table emitted by the
 /// snapshot build (for `lazy_loaded_*`).
 #[doc(hidden)]
+#[cfg(feature = "quickjs")]
+#[macro_export]
+macro_rules! __extension_include_js_files_detect {
+  ($($rest:tt)*) => { $crate::__extension_include_js_files_inner!(mode=included, $($rest)*) };
+}
+
+#[doc(hidden)]
+#[cfg(not(feature = "quickjs"))]
 #[macro_export]
 macro_rules! __extension_include_js_files_detect {
   ($($rest:tt)*) => { $crate::__extension_include_js_files_inner!(mode=loaded, $($rest)*) };

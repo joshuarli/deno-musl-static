@@ -128,6 +128,10 @@ pub fn npm_system_info(subcommand: &DenoSubcommand) -> NpmSystemInfo {
           os: "linux".into(),
           cpu: "arm64".into(),
         },
+        "aarch64-unknown-linux-musl" => NpmSystemInfo {
+          os: "linux".into(),
+          cpu: "arm64".into(),
+        },
         "x86_64-apple-darwin" => NpmSystemInfo {
           os: "darwin".into(),
           cpu: "x64".into(),
@@ -718,6 +722,24 @@ pub fn flags_from_vec_with_initial_cwd(
     args
   };
 
+  #[cfg(feature = "quickjs")]
+  let explicit_engine = args.iter().any(|arg| {
+    arg == "--engine" || arg.as_encoded_bytes().starts_with(b"--engine=")
+  });
+  #[cfg(feature = "quickjs")]
+  if args.iter().any(|arg| {
+    arg == "--engine=v8"
+      || (arg == "--engine"
+        && args
+          .windows(2)
+          .any(|pair| pair[0] == "--engine" && pair[1] == "v8"))
+  }) {
+    return Err(CliError::new(
+      deno_cli_parser::CliErrorKind::InvalidValue,
+      "v8 is not available in this QuickJS build",
+    ));
+  }
+
   // Fast path for the overwhelmingly common `deno run <file> [args...]` with no
   // deno-level flags before the file: build `RunFlags` directly and skip the
   // parser entirely. `bare_run_fast_path` produces output identical to the full
@@ -739,6 +761,18 @@ pub fn flags_from_vec_with_initial_cwd(
 
   match deno_cli_parser::convert::flags_from_vec(string_args) {
     Ok(mut flags) => {
+      #[cfg(feature = "quickjs")]
+      if !explicit_engine {
+        match &mut flags.subcommand {
+          DenoSubcommand::Compile(compile) => {
+            compile.engine = JavaScriptEngine::QuickJs;
+          }
+          DenoSubcommand::Desktop(desktop) => {
+            desktop.engine = JavaScriptEngine::QuickJs;
+          }
+          _ => {}
+        }
+      }
       // Set (and, for compile/desktop, canonicalize) the initial cwd — the
       // parser crate has no filesystem access, so this stays on the CLI side.
       flags.initial_cwd = match &flags.subcommand {
@@ -760,12 +794,13 @@ pub fn render_version(long: bool) -> String {
   if long {
     debug_assert_eq!(DENO_VERSION_INFO.typescript, deno_snapshots::TS_VERSION);
     format!(
-      "deno {} ({}, {}, {})\nv8 {}\ntypescript {}\n",
+      "deno {} ({}, {}, {})\n{} {}\ntypescript {}\n",
       DENO_VERSION_INFO.deno,
       DENO_VERSION_INFO.release_channel.name(),
       env!("PROFILE"),
       env!("TARGET"),
-      deno_core::v8::VERSION_STRING,
+      deno_core::v8::ENGINE_NAME,
+      deno_core::v8::ENGINE_VERSION_STRING,
       DENO_VERSION_INFO.typescript,
     )
   } else {

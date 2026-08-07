@@ -54,9 +54,18 @@ extension!(runtime,
         "ext:deno_features/flags.js",
         deno_features::JS_SOURCE,
       ));
-      // 99_main.js is the snapshot's ESM entry point; its source is loaded
-      // from disk only during snapshot creation, so we don't duplicate it in
-      // the final binary's `.rodata`.
+      // 99_main.js is the snapshot's ESM entry point. QuickJS has no V8
+      // startup snapshot, so its source must be embedded for standalone use;
+      // V8 keeps the source path-only snapshot behavior.
+      #[cfg(feature = "quickjs")]
+      ext.esm_files.to_mut().push(ExtensionFileSource::new(
+        "ext:runtime_main/js/99_main.js",
+        deno_core::ascii_str_include!(concat!(
+          env!("CARGO_MANIFEST_DIR"),
+          "/js/99_main.js"
+        )),
+      ));
+      #[cfg(not(feature = "quickjs"))]
       ext.esm_files.to_mut().push(ExtensionFileSource::loaded_during_snapshot(
         "ext:runtime_main/js/99_main.js",
         concat!(env!("CARGO_MANIFEST_DIR"), "/js/99_main.js"),

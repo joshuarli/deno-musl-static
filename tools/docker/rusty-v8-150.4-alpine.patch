@@ -1,0 +1,146 @@
+--- a/build.rs
++++ b/build.rs
+@@ -410,7 +410,9 @@
+   // cross-compilation setup
+   if target_arch == "aarch64" {
+     gn_args.push(r#"target_cpu="arm64""#.to_string());
+-    if target_os == "linux" {
++    if target_os == "linux"
++      && env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default() != "musl"
++    {
+       gn_args.push("use_sysroot=true".to_string());
+       maybe_install_sysroot("arm64");
+       maybe_install_sysroot("amd64");
+@@ -459,12 +459,5 @@
+     match target_arch.as_str() {
+       "x86_64" => {
+-        // Host cpu == target cpu, so V8 would build the executable build tools
+-        // with the (musl) default toolchain. Force the host and snapshot
+-        // toolchains to a dedicated glibc toolchain so those tools stay glibc.
+-        let glibc = "//build/toolchain/linux:clang_x64_glibc";
+-        gn_args.push(format!("host_toolchain=\"{glibc}\""));
+-        gn_args.push(format!("v8_snapshot_toolchain=\"{glibc}\""));
+-        // That glibc toolchain builds against the amd64 sysroot, same as the
+-        // host side of the aarch64/riscv64 cross builds.
+-        maybe_install_sysroot("amd64");
++        // Native Alpine can build and run V8's host and snapshot tools with
++        // the same musl toolchain; do not download a glibc sysroot.
+       }
+@@ -659,4 +659,21 @@
+ fn download_rust_toolchain() {
++  if env::var_os("RUSTY_V8_USE_SYSTEM_RUST").is_some() {
++    println!("Using the system Rust toolchain");
++    let rustc = Command::new("rustc")
++      .arg("-vV")
++      .output()
++      .expect("Could not query the system Rust toolchain");
++    assert!(rustc.status.success());
++    fs::create_dir_all("third_party/rust-toolchain").unwrap();
++    let rustc_version = String::from_utf8(rustc.stdout).unwrap();
++    fs::write(
++      "third_party/rust-toolchain/VERSION",
++      rustc_version.lines().next().unwrap(),
++    )
++    .unwrap();
++    return;
++  }
++
+   assert!(
+     Command::new(python())
+       .arg("./tools/rust_toolchain.py")
+--- a/build/config/compiler_cpu_abi.gn
++++ b/build/config/compiler_cpu_abi.gn
+@@ -49,7 +49,7 @@
+   if (current_cpu == "x64") {
+     if (is_clang && !is_android && !is_fuchsia && !is_chromeos_device) {
+-      cpu_abi_cflags += [ "--target=x86_64-unknown-linux-gnu" ]
+-      cpu_abi_ldflags += [ "--target=x86_64-unknown-linux-gnu" ]
++      cpu_abi_cflags += [ "--target=x86_64-alpine-linux-musl" ]
++      cpu_abi_ldflags += [ "--target=x86_64-alpine-linux-musl" ]
+     } else {
+       cpu_abi_cflags += [ "-m64" ]
+       cpu_abi_ldflags += [ "-m64" ]
+@@ -85,5 +85,5 @@
+   } else if (current_cpu == "arm64") {
+     if (is_clang && !is_android && !is_fuchsia && !is_chromeos_device) {
+-      cpu_abi_cflags += [ "--target=aarch64-linux-gnu" ]
+-      cpu_abi_ldflags += [ "--target=aarch64-linux-gnu" ]
++      cpu_abi_cflags += [ "--target=aarch64-alpine-linux-musl" ]
++      cpu_abi_ldflags += [ "--target=aarch64-alpine-linux-musl" ]
+     }
+--- a/build/config/clang/BUILD.gn
++++ b/build/config/clang/BUILD.gn
+@@ -189,6 +189,7 @@
+       } else if (is_linux || is_chromeos) {
+         if (current_cpu == "x64") {
+-          _dir = "x86_64-unknown-linux-gnu"
++          _dir = "linux"
++          _suffix = "-x86_64"
+         } else if (current_cpu == "x86") {
+           _dir = "i386-unknown-linux-gnu"
+           _suffix = ""
+@@ -195,7 +195,8 @@
+         } else if (current_cpu == "arm") {
+           _dir = "armv7-unknown-linux-gnueabihf"
+         } else if (current_cpu == "arm64") {
+-          _dir = "aarch64-unknown-linux-gnu"
++          _dir = "linux"
++          _suffix = "-aarch64"
+         } else if (current_cpu == "loong64") {
+           _dir = "loongarch64-unknown-linux-gnu"
+         } else if (current_cpu == "riscv64") {
+--- a/build/config/compiler/BUILD.gn
++++ b/build/config/compiler/BUILD.gn
+@@ -592,1 +592,1 @@
+-      cflags += [ "-fdiagnostics-show-inlining-chain" ]
++      cflags += []
+@@ -631,1 +631,1 @@
+-      cflags += [ "-fno-lifetime-dse" ]
++      cflags += []
+@@ -648,15 +648,0 @@
+-    # TODO(crbug.com/40283598): This causes binary size growth and potentially
+-    # other problems.
+-    if (default_toolchain != "//build/toolchain/cros:target") {
+-      cflags += [
+-        "-mllvm",
+-        "-split-threshold-for-reg-with-hint=0",
+-      ]
+-      if (use_thin_lto && is_a_target_toolchain) {
+-        if (is_win) {
+-          ldflags += [ "-mllvm:-split-threshold-for-reg-with-hint=0" ]
+-        } else {
+-          ldflags += [ "-Wl,-mllvm,-split-threshold-for-reg-with-hint=0" ]
+-        }
+-      }
+-    }
+--- a/build/config/sanitizers/sanitizers.gni
++++ b/build/config/sanitizers/sanitizers.gni
+@@ -544,1 +544,0 @@
+-        "-fsanitize-ignore-for-ubsan-feature=${invoker.sanitizer}",
+--- a/v8/src/sandbox/testing.cc
++++ b/v8/src/sandbox/testing.cc
+@@ -47,5 +47,1 @@
+-#if defined(V8_USE_ADDRESS_SANITIZER) || defined(V8_USE_MEMORY_SANITIZER) || \
+-    defined(V8_USE_UNDEFINED_BEHAVIOR_SANITIZER)
+-#define V8_USE_ANY_SANITIZER 1
+-#include <sanitizer/common_interface_defs.h>
+-#endif
++// Alpine's no-sanitizer-trap patch removes the callbacks that used this API.
+@@ -1004,3 +1000,0 @@
+-#ifdef V8_USE_ANY_SANITIZER
+-  __sanitizer_set_death_callback(nullptr);
+-#endif  // V8_USE_ANY_SANITIZER
+@@ -1290,8 +1282,0 @@
+-#ifdef V8_USE_ANY_SANITIZER
+-  // We install sanitizer specific crash handlers. These can only check for
+-  // in-sandbox crashes on certain configurations.
+-  //
+-  // The crash handler also resets the signal handler as sanitizer may use
+-  // `abort()` via `abort_on_error=1` option to signal problems.
+-  __sanitizer_set_death_callback(&SanitizerFaultHandler);
+-#endif  // V8_USE_ANY_SANITIZER
+--- a/v8/src/codegen/external-reference-table.cc
++++ b/v8/src/codegen/external-reference-table.cc
+@@ -13,1 +13,1 @@
+-#if defined(DEBUG) && defined(V8_OS_LINUX) && !defined(V8_OS_ANDROID)
++#if defined(DEBUG) && defined(V8_OS_LINUX) && !defined(V8_OS_ANDROID) && !defined(_LIBCPP_HAS_MUSL_LIBC)
