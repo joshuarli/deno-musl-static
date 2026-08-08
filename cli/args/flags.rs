@@ -723,16 +723,25 @@ pub fn flags_from_vec_with_initial_cwd(
   };
 
   #[cfg(feature = "quickjs")]
-  let explicit_engine = args.iter().any(|arg| {
-    arg == "--engine" || arg.as_encoded_bytes().starts_with(b"--engine=")
+  let engine_args = args
+    .iter()
+    .take_while(|arg| *arg != "--")
+    .collect::<Vec<_>>();
+  #[cfg(feature = "quickjs")]
+  let explicit_engine = engine_args.iter().any(|arg| {
+    arg.as_encoded_bytes() == b"--engine"
+      || arg.as_encoded_bytes().starts_with(b"--engine=")
   });
   #[cfg(feature = "quickjs")]
-  if args.iter().any(|arg| {
-    arg == "--engine=v8"
-      || (arg == "--engine"
-        && args
+  if engine_args.iter().any(|arg| {
+    arg.as_encoded_bytes() == b"--engine=v8"
+      || (arg.as_encoded_bytes() == b"--engine"
+        && engine_args
           .windows(2)
-          .any(|pair| pair[0] == "--engine" && pair[1] == "v8"))
+          .any(|pair| {
+            pair[0].as_encoded_bytes() == b"--engine"
+              && pair[1].as_encoded_bytes() == b"v8"
+          }))
   }) {
     return Err(CliError::new(
       deno_cli_parser::CliErrorKind::InvalidValue,

@@ -5108,6 +5108,24 @@ fn compile_target_aarch64_windows() {
 }
 
 #[test]
+fn compile_target_aarch64_linux_musl() {
+  let flags = flags_from_vec(svec![
+    "deno",
+    "compile",
+    "--target=aarch64-unknown-linux-musl",
+    "main.ts"
+  ])
+  .unwrap();
+  let DenoSubcommand::Compile(compile) = flags.subcommand else {
+    panic!("expected compile subcommand");
+  };
+  assert_eq!(
+    compile.target,
+    Some("aarch64-unknown-linux-musl".to_string())
+  );
+}
+
+#[test]
 fn desktop_backend_default() {
   let r = flags_from_vec(svec!["deno", "desktop", "main.tsx"]);
   let flags = r.unwrap();
