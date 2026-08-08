@@ -13,6 +13,10 @@ description = "Networking for Deno"
 [lib]
 path = "lib.rs"
 
+[features]
+default = ["quic"]
+quic = ["dep:deno_tunnel", "dep:quinn", "dep:web-transport-proto"]
+
 [dependencies]
 deno_core.workspace = true
 deno_error.workspace = true
@@ -20,13 +24,13 @@ deno_features.workspace = true
 deno_permissions.workspace = true
 deno_signals.workspace = true
 deno_tls.workspace = true
-deno_tunnel.workspace = true
+deno_tunnel = { workspace = true, optional = true }
 hickory-proto.workspace = true
 hickory-resolver.workspace = true
 libc.workspace = true
 log.workspace = true
 pin-project.workspace = true
-quinn = { workspace = true, features = ["runtime-tokio", "rustls-aws-lc-rs"] }
+quinn = { workspace = true, optional = true, features = ["runtime-tokio", "rustls-aws-lc-rs"] }
 rustls-tokio-stream.workspace = true
 serde.workspace = true
 sha2.workspace = true
@@ -34,7 +38,7 @@ socket2.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 url.workspace = true
-web-transport-proto.workspace = true
+web-transport-proto = { workspace = true, optional = true }
 x509-parser.workspace = true
 
 [target.'cfg(any(target_os = "android", target_os = "linux", target_os = "macos"))'.dependencies]

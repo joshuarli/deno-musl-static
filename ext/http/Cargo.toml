@@ -11,9 +11,10 @@ repository.workspace = true
 description = "HTTP server implementation for Deno"
 
 [features]
-default = ["default_property_extractor"]
+default = ["default_property_extractor", "quic"]
 "__http_tracing" = []
 default_property_extractor = []
+quic = ["deno_net/quic"]
 telemetry = ["dep:deno_telemetry"]
 
 [lib]
@@ -33,7 +34,7 @@ bytes.workspace = true
 deno_core.workspace = true
 deno_error.workspace = true
 deno_http_h1.workspace = true
-deno_net.workspace = true
+deno_net = { workspace = true, default-features = false }
 deno_telemetry = { workspace = true, optional = true }
 deno_websocket.workspace = true
 flate2.workspace = true

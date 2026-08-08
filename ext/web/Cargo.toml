@@ -13,6 +13,10 @@ description = "Collection of Web APIs"
 [lib]
 path = "lib.rs"
 
+[features]
+default = ["webtransport"]
+webtransport = []
+
 [dependencies]
 async-trait.workspace = true
 brotli.workspace = true

@@ -3,6 +3,7 @@
 import { core, primordials } from "ext:core/mod.js";
 import {
   op_bootstrap_image_enabled,
+  op_bootstrap_quic_enabled,
   op_bootstrap_webgpu_enabled,
 } from "ext:core/ops";
 const {
@@ -12,6 +13,7 @@ const {
 } = primordials;
 const webgpuEnabled = op_bootstrap_webgpu_enabled();
 const imageEnabled = op_bootstrap_image_enabled();
+const quicEnabled = op_bootstrap_quic_enabled();
 
 const event = core.loadExtScript("ext:deno_web/02_event.js");
 const loadBase64 = () => core.loadExtScript("ext:deno_web/05_base64.js");
@@ -561,35 +563,40 @@ unstableForWindowOrWorkerGlobalScope[unstableIds.net] = {
     (wss) => wss.WebSocketError,
     loadWebSocketStream,
   ),
-  WebTransport: core.propNonEnumerableLazyLoaded(
-    (wt) => wt.WebTransport,
-    loadWebTransport,
-  ),
-  WebTransportBidirectionalStream: core.propNonEnumerableLazyLoaded(
-    (wt) => wt.WebTransportBidirectionalStream,
-    loadWebTransport,
-  ),
-  WebTransportDatagramDuplexStream: core.propNonEnumerableLazyLoaded(
-    (wt) => wt.WebTransportDatagramDuplexStream,
-    loadWebTransport,
-  ),
-  WebTransportReceiveStream: core.propNonEnumerableLazyLoaded(
-    (wt) => wt.WebTransportReceiveStream,
-    loadWebTransport,
-  ),
-  WebTransportSendGroup: core.propNonEnumerableLazyLoaded(
-    (wt) => wt.WebTransportSendGroup,
-    loadWebTransport,
-  ),
-  WebTransportSendStream: core.propNonEnumerableLazyLoaded(
-    (wt) => wt.WebTransportSendStream,
-    loadWebTransport,
-  ),
-  WebTransportError: core.propNonEnumerableLazyLoaded(
-    (wt) => wt.WebTransportError,
-    loadWebTransport,
-  ),
 };
+
+if (quicEnabled) {
+  Object.assign(unstableForWindowOrWorkerGlobalScope[unstableIds.net], {
+    WebTransport: core.propNonEnumerableLazyLoaded(
+      (wt) => wt.WebTransport,
+      loadWebTransport,
+    ),
+    WebTransportBidirectionalStream: core.propNonEnumerableLazyLoaded(
+      (wt) => wt.WebTransportBidirectionalStream,
+      loadWebTransport,
+    ),
+    WebTransportDatagramDuplexStream: core.propNonEnumerableLazyLoaded(
+      (wt) => wt.WebTransportDatagramDuplexStream,
+      loadWebTransport,
+    ),
+    WebTransportReceiveStream: core.propNonEnumerableLazyLoaded(
+      (wt) => wt.WebTransportReceiveStream,
+      loadWebTransport,
+    ),
+    WebTransportSendGroup: core.propNonEnumerableLazyLoaded(
+      (wt) => wt.WebTransportSendGroup,
+      loadWebTransport,
+    ),
+    WebTransportSendStream: core.propNonEnumerableLazyLoaded(
+      (wt) => wt.WebTransportSendStream,
+      loadWebTransport,
+    ),
+    WebTransportError: core.propNonEnumerableLazyLoaded(
+      (wt) => wt.WebTransportError,
+      loadWebTransport,
+    ),
+  });
+}
 
 if (webgpuEnabled) {
   unstableForWindowOrWorkerGlobalScope[unstableIds.webgpu] = {};

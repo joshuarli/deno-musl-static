@@ -16,6 +16,8 @@ upstream. V8 builds should retain their existing behavior.
 - QuickJS omits `deno_image`, `deno_lint`, `deno_doc`, `deno_kv`, and
   `deno_telemetry`. V8 retains those features through its existing feature
   set.
+- QuickJS also omits the QUIC/WebTransport implementation and Deno Deploy
+  tunnel. V8 retains the networking APIs through the `quic` feature.
 - The macOS Makefile now builds `deno` and `denort` in one Cargo invocation,
   allowing Cargo to share their resolved build units. The `deno` build script
   no longer depends on `deno_runtime` just to reach linker-flag helpers.
@@ -89,6 +91,31 @@ larger binary reduction.
 
 The release QuickJS smoke test reports `undefined` for
 `navigator.gpu`, `GPU`, `OffscreenCanvas`, and `Deno.unstable?.webgpu`.
+
+## Completed: remove QUIC/WebTransport from QuickJS
+
+The QuickJS profile now omits QUIC, WebTransport, and Deno Deploy tunnel
+support. The implementation is behind a `quic` feature on `deno_net`,
+`deno_http`, `deno_web`, and `deno_runtime`; V8 enables that feature. The
+QuickJS runtime does not expose the QUIC/WebTransport globals, and the native
+QUIC/tunnel ops and resource variants are not registered.
+
+This is a combined cut rather than a `deno_tunnel`-only deletion: `deno_net`
+also directly compiled the QUIC stack, while HTTP and CLI code had tunnel
+integration of their own. The main boundary is `ext/net`, with conditional
+handling in `ext/http`, the runtime bootstrap globals, and CLI tunnel startup.
+
+### Measured result
+
+The comparison uses the existing `target/macos-aarch64-quickjs` cache and the
+`release-quickjs` profile; no target directory was removed or reset.
+
+| Measurement | Before QUIC cut | After QUIC cut | Difference |
+| --- | ---: | ---: | ---: |
+| Normal/build package IDs | 777 | 767 | -10 (-1.29%) |
+| `deno` release binary | 74,571,152 B | 72,883,728 B | -1,687,424 B (-2.26%) |
+| `denort` release binary | 48,952,816 B | 47,337,232 B | -1,615,584 B (-3.30%) |
+| Combined binaries | 123,523,968 B | 120,220,960 B | -3,303,008 B (-2.67%) |
 
 ## Completed: remove isolated runtime and CLI features
 

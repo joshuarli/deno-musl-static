@@ -43,6 +43,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use args::TaskFlags;
+#[cfg(feature = "quic")]
 use deno_config::glob::FilePatterns;
 use deno_core::anyhow::Context;
 use deno_core::error::AnyError;
@@ -1063,11 +1064,13 @@ async fn resolve_flags_and_init(
     }
   }
 
+  #[cfg(feature = "quic")]
   if deno_lib::args::has_flag_env_var(&sys, "DENO_CONNECTED") {
     flags.tunnel = true;
   }
 
   // Tunnel sets up env vars and OTEL, so connect before everything else.
+  #[cfg(feature = "quic")]
   if flags.tunnel && !matches!(flags.subcommand, DenoSubcommand::Deploy(_)) {
     if let Err(err) = initialize_tunnel(&flags).await {
       exit_for_error(
@@ -1336,6 +1339,7 @@ fn wait_for_start(
   })
 }
 
+#[cfg(feature = "quic")]
 #[derive(serde::Deserialize)]
 struct AuthTunnelOutput {
   org: String,
@@ -1343,6 +1347,7 @@ struct AuthTunnelOutput {
   token: String,
 }
 
+#[cfg(feature = "quic")]
 async fn auth_tunnel(
   no_config: bool,
   env_token: Option<String>,
@@ -1377,6 +1382,7 @@ async fn auth_tunnel(
   Ok(output)
 }
 
+#[cfg(feature = "quic")]
 async fn initialize_tunnel(
   flags: &Flags,
 ) -> Result<(), deno_core::anyhow::Error> {
