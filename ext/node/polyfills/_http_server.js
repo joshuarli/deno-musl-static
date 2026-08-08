@@ -22,7 +22,7 @@
 
 // Ported from Node.js lib/_http_server.js
 
-import { core, primordials } from "ext:core/mod.js";
+import { core, internals, primordials } from "ext:core/mod.js";
 const {
   ArrayIsArray,
   ArrayPrototypeIncludes,
@@ -123,7 +123,7 @@ const {
   builtinTracer,
   ContextManager,
   telemetry,
-} = core.loadExtScript("ext:deno_telemetry/telemetry.ts");
+} = internals.__telemetry;
 const { channel } = core.loadExtScript("ext:deno_node/diagnostics_channel.js");
 
 const onServerRequestStartChannel = channel("http.server.request.start");

@@ -1958,7 +1958,6 @@ dependencies = [
  "deno_snapshots",
  "deno_subprocess_windows",
  "deno_task_shell",
- "deno_telemetry",
  "deno_terminal",
  "deno_tower_lsp",
  "deno_v8",

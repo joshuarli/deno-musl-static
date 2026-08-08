@@ -15,6 +15,7 @@ pub fn get_extensions_in_snapshot() -> Vec<Extension> {
   // and `runtime/snapshot.rs`!
   let fs = std::sync::Arc::new(deno_fs::RealFs);
   let mut extensions = vec![
+    #[cfg(feature = "telemetry")]
     deno_telemetry::deno_telemetry::init(),
     deno_webidl::deno_webidl::init(),
     deno_web::deno_web::init(

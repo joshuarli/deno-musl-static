@@ -5,6 +5,7 @@ import {
   op_net_listen_udp,
   op_net_listen_unixpacket,
   op_bootstrap_kv_enabled,
+  op_bootstrap_telemetry_enabled,
   op_bootstrap_webgpu_enabled,
   op_runtime_cpu_usage,
   op_runtime_memory_usage,
@@ -76,6 +77,40 @@ const lazyTelemetry = () =>
 import { unstableIds } from "ext:deno_features/flags.js";
 const webgpuEnabled = op_bootstrap_webgpu_enabled();
 const kvEnabled = op_bootstrap_kv_enabled();
+const telemetryEnabled = op_bootstrap_telemetry_enabled();
+
+if (!telemetryEnabled) {
+  const noopSpan = {
+    end() {},
+    setAttribute() {},
+    setStatus() {},
+    updateName() {},
+  };
+  const noopContext = { setValue() { return this; } };
+  const noopMeter = {
+    createHistogram() { return { record() {} }; },
+    createUpDownCounter() { return { add() {} }; },
+  };
+  internals.__telemetry = {
+    builtinTracer: () => ({ startSpan: () => noopSpan }),
+    ContextManager: { active: () => noopContext },
+    enterSpan: () => undefined,
+    restoreSnapshot() {},
+    currentSnapshot: () => undefined,
+    SPAN_KEY: Symbol("disabledTelemetrySpan"),
+    PROPAGATORS: [],
+    TRACING_ENABLED: false,
+    METRICS_ENABLED: false,
+    getOtelSpan: undefined,
+    telemetry: { meterProvider: { getMeter: () => noopMeter } },
+  };
+  internals.__telemetryUtil = {
+    updateSpanFromClientResponse() {},
+    updateSpanFromError() {},
+    updateSpanFromRequest() {},
+    updateSpanFromServerResponse() {},
+  };
+}
 const loadWebGPU = () => {
   if (!webgpuEnabled) return undefined;
   return core.loadExtScript("ext:deno_webgpu/00_init.js").loadWebGPU();
@@ -281,6 +316,10 @@ const denoNs = {
     return lazyTelemetry().telemetry;
   },
 };
+
+if (!telemetryEnabled) {
+  delete denoNs.telemetry;
+}
 
 core.defineGlobalProperties(denoNs, {
   Process: core.propWritableLazyLoaded(

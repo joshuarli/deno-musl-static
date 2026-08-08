@@ -14,6 +14,7 @@ description = "HTTP server implementation for Deno"
 default = ["default_property_extractor"]
 "__http_tracing" = []
 default_property_extractor = []
+telemetry = ["dep:deno_telemetry"]
 
 [lib]
 path = "lib.rs"
@@ -33,7 +34,7 @@ deno_core.workspace = true
 deno_error.workspace = true
 deno_http_h1.workspace = true
 deno_net.workspace = true
-deno_telemetry.workspace = true
+deno_telemetry = { workspace = true, optional = true }
 deno_websocket.workspace = true
 flate2.workspace = true
 http.workspace = true

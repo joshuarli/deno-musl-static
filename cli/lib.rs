@@ -55,9 +55,10 @@ use deno_resolver::npm::ByonmResolvePkgFolderFromDenoReqError;
 use deno_resolver::npm::ResolvePkgFolderFromDenoReqError;
 use deno_runtime::UnconfiguredRuntime;
 use deno_runtime::WorkerExecutionMode;
+use deno_runtime::deno_telemetry;
+use deno_runtime::deno_telemetry::OtelConfig;
 use deno_runtime::fmt_errors::format_js_error;
 use deno_runtime::tokio_util::create_and_run_current_thread_with_maybe_metrics;
-use deno_telemetry::OtelConfig;
 use deno_terminal::colors;
 use factory::CliFactory;
 use util::fs::canonicalize_path;
@@ -176,9 +177,11 @@ async fn run_subcommand(
     }),
     DenoSubcommand::Doc(doc_flags) => {
       #[cfg(feature = "doc")]
-      return spawn_subcommand(async {
-        tools::doc::doc(Arc::new(flags), doc_flags).await
-      });
+      {
+        spawn_subcommand(async {
+          tools::doc::doc(Arc::new(flags), doc_flags).await
+        })
+      }
       #[cfg(not(feature = "doc"))]
       {
         let _ = doc_flags;
@@ -276,35 +279,39 @@ async fn run_subcommand(
     }),
     DenoSubcommand::Lsp => {
       #[cfg(feature = "lsp")]
-      return spawn_subcommand(async move {
-        if std::io::stderr().is_terminal() {
-          log::warn!(
-          "{} command is intended to be run by text editors and IDEs and shouldn't be run manually.
+      {
+        spawn_subcommand(async move {
+          if std::io::stderr().is_terminal() {
+            log::warn!(
+            "{} command is intended to be run by text editors and IDEs and shouldn't be run manually.
 
   Visit https://docs.deno.com/runtime/getting_started/setup_your_environment/ for instruction
   how to setup your favorite text editor.
 
   Press Ctrl+C to exit.
-        ", colors::cyan("deno lsp"));
-        }
-        lsp::start().await
-      });
+          ", colors::cyan("deno lsp"));
+          }
+          lsp::start().await
+        })
+      }
       #[cfg(not(feature = "lsp"))]
       return Err(AnyError::msg("the LSP is disabled in this build"));
     }
     DenoSubcommand::Lint(lint_flags) => {
       #[cfg(feature = "lint")]
-      return spawn_subcommand(async {
-        if lint_flags.rules {
-          tools::lint::print_rules_list(
-            lint_flags.json,
-            lint_flags.maybe_rules_tags,
-          );
-          Ok(())
-        } else {
-          tools::lint::lint(Arc::new(flags), lint_flags).await
-        }
-      });
+      {
+        spawn_subcommand(async {
+          if lint_flags.rules {
+            tools::lint::print_rules_list(
+              lint_flags.json,
+              lint_flags.maybe_rules_tags,
+            );
+            Ok(())
+          } else {
+            tools::lint::lint(Arc::new(flags), lint_flags).await
+          }
+        })
+      }
       #[cfg(not(feature = "lint"))]
       {
         let _ = lint_flags;

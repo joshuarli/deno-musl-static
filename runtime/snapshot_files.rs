@@ -37,6 +37,7 @@ pub fn runtime_extensions(
   snapshot_options: Option<SnapshotOptions>,
 ) -> Vec<Extension> {
   let mut extensions = vec![
+    #[cfg(feature = "telemetry")]
     deno_telemetry::deno_telemetry::lazy_init(),
     deno_webidl::deno_webidl::lazy_init(),
     deno_web::deno_web::lazy_init(),

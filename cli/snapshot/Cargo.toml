@@ -15,7 +15,7 @@ path = "lib.rs"
 
 [features]
 default = ["v8_snapshot"]
-v8_snapshot = ["deno_runtime/kv", "deno_runtime/snapshot", "deno_runtime/webgpu", "deno_core/v8"]
+v8_snapshot = ["deno_runtime/kv", "deno_runtime/snapshot", "deno_runtime/telemetry", "deno_runtime/webgpu", "deno_core/v8"]
 disable = [
   "deno_core/quickjs",
   "deno_runtime/quickjs",

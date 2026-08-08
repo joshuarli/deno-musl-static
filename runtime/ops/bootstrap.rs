@@ -12,6 +12,7 @@ deno_core::extension!(
     op_bootstrap_args,
     op_bootstrap_kv_enabled,
     op_bootstrap_pid,
+    op_bootstrap_telemetry_enabled,
     op_bootstrap_numcpus,
     op_bootstrap_image_enabled,
     op_bootstrap_webgpu_enabled,
@@ -94,6 +95,11 @@ pub fn op_bootstrap_pid() -> u32 {
 #[op2(fast)]
 pub fn op_bootstrap_kv_enabled() -> bool {
   cfg!(feature = "kv")
+}
+
+#[op2(fast)]
+pub fn op_bootstrap_telemetry_enabled() -> bool {
+  cfg!(feature = "telemetry")
 }
 
 #[op2(fast)]

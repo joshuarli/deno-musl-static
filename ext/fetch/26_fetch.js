@@ -69,10 +69,10 @@ const abortSignal = core.loadExtScript("ext:deno_web/03_abort_signal.js");
 // use. Fetch is the one always-on caller that depends on `__telemetry` and
 // `__telemetryUtil`, so it loads both modules on first use.
 if (!internals.__telemetry) {
-  core.loadExtScript("ext:deno_telemetry/telemetry.ts");
+  throw new Error("telemetry state was not initialized");
 }
 if (!internals.__telemetryUtil) {
-  core.loadExtScript("ext:deno_telemetry/util.ts");
+  throw new Error("telemetry utilities were not initialized");
 }
 const {
   builtinTracer,

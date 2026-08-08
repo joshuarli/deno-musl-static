@@ -51,9 +51,13 @@ use deno_core::op2;
 use deno_core::unsync::spawn;
 use deno_error::JsErrorBox;
 use deno_net::raw::NetworkStream;
+#[cfg(feature = "telemetry")]
 use deno_telemetry::Histogram;
+#[cfg(feature = "telemetry")]
 use deno_telemetry::MeterProvider;
+#[cfg(feature = "telemetry")]
 use deno_telemetry::OTEL_GLOBALS;
+#[cfg(feature = "telemetry")]
 use deno_telemetry::UpDownCounter;
 use deno_websocket::ws_create_server_stream;
 use flate2::Compression;
@@ -77,6 +81,7 @@ use hyper::server::conn::http1;
 use hyper::server::conn::http2;
 use hyper::service::Service;
 use hyper_util::rt::TokioIo;
+#[cfg(feature = "telemetry")]
 use once_cell::sync::OnceCell;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
@@ -170,6 +175,7 @@ fn cache_control_has_no_transform(value: &str) -> Option<bool> {
   Some(no_transform)
 }
 
+#[cfg(feature = "telemetry")]
 struct OtelCollectors {
   duration: Histogram<f64>,
   active_requests: UpDownCounter<i64>,
@@ -177,6 +183,7 @@ struct OtelCollectors {
   response_size: Histogram<u64>,
 }
 
+#[cfg(feature = "telemetry")]
 static OTEL_COLLECTORS: OnceCell<OtelCollectors> = OnceCell::new();
 
 const HTTP2_PREFIX: &[u8] = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";
@@ -409,6 +416,7 @@ impl From<tokio::net::unix::SocketAddr> for HttpSocketAddr {
   }
 }
 
+#[cfg(feature = "telemetry")]
 struct OtelInfo {
   attributes: OtelInfoAttributes,
   duration: Option<std::time::Instant>,
@@ -416,6 +424,7 @@ struct OtelInfo {
   response_size: Option<u64>,
 }
 
+#[cfg(feature = "telemetry")]
 struct OtelInfoAttributes {
   http_request_method: Cow<'static, str>,
   network_protocol_version: &'static str,
@@ -427,6 +436,7 @@ struct OtelInfoAttributes {
   http_response_status_code: Option<i64>,
 }
 
+#[cfg(feature = "telemetry")]
 impl OtelInfoAttributes {
   fn method(method: &http::method::Method) -> Cow<'static, str> {
     use http::method::Method;
@@ -519,6 +529,7 @@ impl OtelInfoAttributes {
   }
 }
 
+#[cfg(feature = "telemetry")]
 impl OtelInfo {
   fn new(
     otel: &deno_telemetry::OtelGlobals,
@@ -617,6 +628,7 @@ impl OtelInfo {
   }
 }
 
+#[cfg(feature = "telemetry")]
 impl Drop for OtelInfo {
   fn drop(&mut self) {
     let collectors = OTEL_COLLECTORS.get().unwrap();
@@ -635,6 +647,7 @@ impl Drop for OtelInfo {
   }
 }
 
+#[cfg(feature = "telemetry")]
 fn handle_error_otel(
   otel: &Option<Rc<RefCell<Option<OtelInfo>>>>,
   error: &HttpError,
@@ -669,6 +682,16 @@ fn handle_error_otel(
     }
   }
 }
+
+#[cfg(not(feature = "telemetry"))]
+fn handle_error_otel(
+  _otel: &Option<Rc<RefCell<Option<OtelInfo>>>>,
+  _error: &HttpError,
+) {
+}
+
+#[cfg(not(feature = "telemetry"))]
+struct OtelInfo;
 
 enum LegacyBody {
   Full(Option<Bytes>),
@@ -839,11 +862,6 @@ impl HttpConnResource {
       let (request_tx, request_rx) = oneshot::channel();
       let (response_tx, response_rx) = oneshot::channel();
 
-      let otel_instant = OTEL_GLOBALS
-        .get()
-        .filter(|o| o.has_metrics())
-        .map(|_| std::time::Instant::now());
-
       let acceptor = HttpAcceptor::new(request_tx, response_rx);
       self.acceptors_tx.unbounded_send(acceptor).ok()?;
 
@@ -854,12 +872,13 @@ impl HttpConnResource {
         preferred_supported_encoding(encodings)
       };
 
+      #[cfg(feature = "telemetry")]
       let otel_info =
         OTEL_GLOBALS.get().filter(|o| o.has_metrics()).map(|otel| {
           let size_hint = request.size_hint();
           Rc::new(RefCell::new(Some(OtelInfo::new(
             otel,
-            otel_instant.unwrap(),
+            std::time::Instant::now(),
             size_hint.upper().unwrap_or(size_hint.lower()),
             OtelInfoAttributes {
               http_request_method: OtelInfoAttributes::method(request.method()),
@@ -875,6 +894,8 @@ impl HttpConnResource {
             },
           ))))
         });
+      #[cfg(not(feature = "telemetry"))]
+      let otel_info = None;
 
       let method = request.method().to_string();
       let url = req_url(&request, self.scheme, &self.addr);
@@ -1011,6 +1032,7 @@ pub struct HttpStreamWriteResource {
   conn: Rc<HttpConnResource>,
   wr: AsyncRefCell<HttpResponseWriter>,
   accept_encoding: Encoding,
+  #[cfg_attr(not(feature = "telemetry"), allow(dead_code))]
   otel_info: Option<Rc<RefCell<Option<OtelInfo>>>>,
 }
 
@@ -1334,6 +1356,7 @@ async fn op_http_write_headers(
   let (new_wr, body) = http_response(data, compressing, encoding)?;
   let body = builder.status(status).body(body)?;
 
+  #[cfg(feature = "telemetry")]
   if let Some(otel) = stream.otel_info.as_ref() {
     let mut otel = otel.borrow_mut();
     if let Some(otel_info) = otel.as_mut() {
@@ -1580,6 +1603,7 @@ async fn op_http_write(
     .get::<HttpStreamWriteResource>(rid)?;
   let mut wr = RcRef::map(&stream, |r| &r.wr).borrow_mut().await;
 
+  #[cfg(feature = "telemetry")]
   if let Some(otel) = stream.otel_info.as_ref() {
     let mut maybe_otel_info = otel.borrow_mut();
     if let Some(otel_info) = maybe_otel_info.as_mut()

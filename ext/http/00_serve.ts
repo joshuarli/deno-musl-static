@@ -124,11 +124,11 @@ const {
   currentSnapshot,
   enterSpan,
   restoreSnapshot,
-} = core.loadExtScript("ext:deno_telemetry/telemetry.ts");
+} = internals.__telemetry;
 const {
   updateSpanFromRequest,
   updateSpanFromServerResponse,
-} = core.loadExtScript("ext:deno_telemetry/util.ts");
+} = internals.__telemetryUtil;
 
 const _upgraded = Symbol("_upgraded");
 

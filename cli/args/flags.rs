@@ -22,9 +22,9 @@ use deno_path_util::normalize_path;
 use deno_path_util::resolve_url_or_path;
 use deno_path_util::url_to_file_path;
 pub use deno_runtime::deno_inspector_server::InspectPublishUid;
-use deno_telemetry::OtelConfig;
-use deno_telemetry::OtelConsoleConfig;
-use deno_telemetry::OtelPropagators;
+use deno_runtime::deno_telemetry::OtelConfig;
+use deno_runtime::deno_telemetry::OtelConsoleConfig;
+use deno_runtime::deno_telemetry::OtelPropagators;
 
 use crate::util::env::resolve_cwd;
 use crate::util::fs::canonicalize_path;

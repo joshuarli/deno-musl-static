@@ -1214,6 +1214,7 @@ fn common_extensions<
   // `runtime/worker.rs`, `runtime/web_worker.rs`, `runtime/snapshot_info.rs`
   // and `runtime/snapshot.rs`!
   let mut extensions = vec![
+    #[cfg(feature = "telemetry")]
     deno_telemetry::deno_telemetry::init(),
     // Web APIs
     deno_webidl::deno_webidl::init(),

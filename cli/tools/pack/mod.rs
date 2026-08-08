@@ -7,6 +7,8 @@ use std::sync::Arc;
 
 use deno_ast::MediaType;
 use deno_ast::ModuleSpecifier;
+#[cfg(feature = "lint")]
+use deno_ast::diagnostics::Diagnostic;
 use deno_config::glob::FileCollector;
 use deno_config::workspace::JsrPackageConfig;
 use deno_core::anyhow::Context;

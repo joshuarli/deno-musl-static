@@ -1,5 +1,6 @@
 // Copyright 2018-2026 the Deno authors. MIT license.
 
+#[cfg(feature = "telemetry")]
 use std::borrow::Cow;
 use std::cell::Cell;
 use std::cell::Ref;
@@ -39,6 +40,7 @@ use scopeguard::guard;
 use tokio::sync::oneshot;
 
 use crate::OtelInfo;
+#[cfg(feature = "telemetry")]
 use crate::OtelInfoAttributes;
 use crate::request_body::BufferedIncoming;
 use crate::request_properties::HttpConnectionProperties;
@@ -696,6 +698,7 @@ where
     return Ok(response);
   }
 
+  #[cfg(feature = "telemetry")]
   let otel_info = if let Some(otel) = deno_telemetry::OTEL_GLOBALS
     .get()
     .filter(|o| o.has_metrics())
@@ -726,6 +729,8 @@ where
   } else {
     None
   };
+  #[cfg(not(feature = "telemetry"))]
+  let otel_info = None;
 
   // If the underlying TCP connection is closed, this future will be dropped
   // and execution could stop at any await point.
@@ -1156,24 +1161,31 @@ impl HttpRecord {
     HttpRecordFinished(self)
   }
 
-  pub fn otel_info_set_status(&self, status: u16) {
-    let mut inner = self.self_mut();
-    if let Some(info) = inner.otel_info.as_mut() {
-      info.attributes.http_response_status_code = Some(status as _);
-      info.handle_duration_and_request_size();
+  pub fn otel_info_set_status(&self, _status: u16) {
+    #[cfg(feature = "telemetry")]
+    {
+      let mut inner = self.self_mut();
+      if let Some(info) = inner.otel_info.as_mut() {
+        info.attributes.http_response_status_code = Some(_status as _);
+        info.handle_duration_and_request_size();
+      }
     }
   }
 
-  pub fn otel_info_set_error(&self, error: &'static str) {
-    let mut inner = self.self_mut();
-    if let Some(info) = inner.otel_info.as_mut() {
-      info.attributes.error_type = Some(error);
-      info.handle_duration_and_request_size();
+  pub fn otel_info_set_error(&self, _error: &'static str) {
+    #[cfg(feature = "telemetry")]
+    {
+      let mut inner = self.self_mut();
+      if let Some(info) = inner.otel_info.as_mut() {
+        info.attributes.error_type = Some(_error);
+        info.handle_duration_and_request_size();
+      }
     }
   }
 
   /// Copy relevant attributes (like `http.route`) from a span to OtelInfo
   /// for metrics.
+  #[cfg(feature = "telemetry")]
   pub fn copy_span_to_otel_info(&self, span: &deno_telemetry::OtelSpan) {
     let mut inner = self.self_mut();
     let span_state = span.0.borrow();
@@ -1222,9 +1234,12 @@ impl Body for HttpRecordResponse {
     match self.get_mut() {
       Self::Empty => Poll::Ready(None),
       Self::Flat { record, body } => {
+        #[cfg(not(feature = "telemetry"))]
+        let _ = record;
         match std::mem::replace(body, FlatResponseBody::Empty) {
           FlatResponseBody::Empty => Poll::Ready(None),
           FlatResponseBody::Bytes(buf) => {
+            #[cfg(feature = "telemetry")]
             if let Some(record) = record {
               let mut http = record.0.borrow_mut();
               if let Some(otel_info) = &mut http.as_mut().unwrap().otel_info
@@ -1283,6 +1298,7 @@ impl Body for HttpRecordResponse {
           record.take_response_body();
         }
 
+        #[cfg(feature = "telemetry")]
         if let ResponseStreamResult::NonEmptyBuf(buf) = &res {
           let mut http = record.0.borrow_mut();
           if let Some(otel_info) = &mut http.as_mut().unwrap().otel_info
