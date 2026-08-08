@@ -20,13 +20,15 @@ jobs:
             smoke_target: musl-aarch64-quickjs-release-smoke
             artifact_name: deno-musl-aarch64-quickjs
             dockerfile: tools/docker/Dockerfile.alpine-aarch64-musl-quickjs
-          - arch: aarch64
-            platform: linux/arm64
-            runner: ubuntu-24.04-arm
-            engine: v8
-            smoke_target: musl-aarch64-v8-release-smoke
-            artifact_name: deno-musl-aarch64-v8
-            dockerfile: tools/docker/Dockerfile.alpine-aarch64-musl-v8
+          # Temporarily disabled while the QuickJS-only profile is being
+          # validated. Re-enable this entry when V8 builds return.
+          # - arch: aarch64
+          #   platform: linux/arm64
+          #   runner: ubuntu-24.04-arm
+          #   engine: v8
+          #   smoke_target: musl-aarch64-v8-release-smoke
+          #   artifact_name: deno-musl-aarch64-v8
+          #   dockerfile: tools/docker/Dockerfile.alpine-aarch64-musl-v8
           - arch: amd64
             platform: linux/amd64
             runner: ubuntu-24.04
@@ -34,25 +36,25 @@ jobs:
             smoke_target: musl-amd64-quickjs-release-smoke
             artifact_name: deno-musl-amd64-quickjs
             dockerfile: tools/docker/Dockerfile.alpine-x86_64-musl-quickjs
-          - arch: amd64
-            platform: linux/amd64
-            runner: ubuntu-24.04
-            engine: v8
-            smoke_target: musl-amd64-v8-release-smoke
-            artifact_name: deno-musl-amd64-v8
-            dockerfile: tools/docker/Dockerfile.alpine-x86_64-musl-v8
+          # - arch: amd64
+          #   platform: linux/amd64
+          #   runner: ubuntu-24.04
+          #   engine: v8
+          #   smoke_target: musl-amd64-v8-release-smoke
+          #   artifact_name: deno-musl-amd64-v8
+          #   dockerfile: tools/docker/Dockerfile.alpine-x86_64-musl-v8
           - arch: aarch64
             platform: macos
             runner: macos-26
             engine: quickjs
             smoke_target: macos-aarch64-quickjs-release-smoke
             artifact_name: deno-macos-aarch64-quickjs
-          - arch: aarch64
-            platform: macos
-            runner: macos-26
-            engine: v8
-            smoke_target: macos-aarch64-v8-release-smoke
-            artifact_name: deno-macos-aarch64-v8
+          # - arch: aarch64
+          #   platform: macos
+          #   runner: macos-26
+          #   engine: v8
+          #   smoke_target: macos-aarch64-v8-release-smoke
+          #   artifact_name: deno-macos-aarch64-v8
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 360
 
@@ -65,7 +67,10 @@ jobs:
           lld_bin_dir="$(brew --prefix lld)/bin"
           echo "$lld_bin_dir" >> "$GITHUB_PATH"
           export PATH="$lld_bin_dir:$PATH"
-          lld --version
+          # Homebrew's `lld` is the generic driver. macOS needs the ld64
+          # driver, even when the LLD toolchain is being installed only for
+          # linker support.
+          ld64.lld --version
 
       - name: Fetch source
         shell: bash
@@ -170,20 +175,14 @@ jobs:
 
           release_name="deno-${GITHUB_SHA}-linux-musl-static"
           mapfile -d '' release_files < <(find artifacts -type f -name '*.zip' -print0 | sort -z)
-          test "${#release_files[@]}" -eq 12
+          test "${#release_files[@]}" -eq 6
           expected_assets=(
             deno-quickjs-aarch64-unknown-linux-musl.zip
             denort-quickjs-aarch64-unknown-linux-musl.zip
-            deno-v8-aarch64-unknown-linux-musl.zip
-            denort-v8-aarch64-unknown-linux-musl.zip
             deno-quickjs-x86_64-unknown-linux-musl.zip
             denort-quickjs-x86_64-unknown-linux-musl.zip
-            deno-v8-x86_64-unknown-linux-musl.zip
-            denort-v8-x86_64-unknown-linux-musl.zip
             deno-quickjs-aarch64-apple-darwin.zip
             denort-quickjs-aarch64-apple-darwin.zip
-            deno-v8-aarch64-apple-darwin.zip
-            denort-v8-aarch64-apple-darwin.zip
           )
           actual_assets=()
           for release_file in "${release_files[@]}"; do
@@ -198,5 +197,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "$release_name" \
-            --notes "Static Linux aarch64 and x86_64 QuickJS/V8 plus macOS 26+ aarch64 QuickJS/V8 Deno compiler/runtime pairs built from $GITHUB_SHA." \
+            --notes "Static Linux aarch64 and x86_64 QuickJS plus macOS 26+ aarch64 QuickJS Deno compiler/runtime pairs built from $GITHUB_SHA." \
             --prerelease
