@@ -22,11 +22,14 @@ protobuf, or the Rusty V8/Chromium source-build setup. The V8 Dockerfiles add
 those tools, apply the Rusty V8 and stacker Alpine overlays, and build V8 from
 source.
 
-Both architectures use the pinned LLVM 22.1.8 musl bundle. The amd64 bundle is
+Both architectures use the pinned LLVM 23.1.0-rc2 musl bundle from release
+`llvm-musl-23.1.0-rc2-c72c957`. The amd64 bundle is
 downloaded from
-[`llvm-prebuilt-musl`](https://github.com/laputa-systems/llvm-prebuilt-musl/releases/download/llvm-musl-22.1.8-a254783/clang%2Bllvm-22.1.8-x86_64-linux-musl.tar.xz)
+[`llvm-prebuilt-musl`](https://github.com/laputa-systems/llvm-prebuilt-musl/releases/download/llvm-musl-23.1.0-rc2-c72c957/clang%2Bllvm-23.1.0-rc2-x86_64-linux-musl.tar.xz)
 with SHA-256
-`f07fa0c93913433a6b6ed79b38452fa516692e87afff512ef46e3b4a200ce3df`.
+`cf90f119fac7e55088e3b718c8a956370d940b004ea5b4f36f629717bc108543`; the
+arm64 bundle uses SHA-256
+`7b8f4d720bb6b2a40352a1c2f57a55100647cf5083ee9c40c5fd7e804e2570d5`.
 
 ## Local builds
 

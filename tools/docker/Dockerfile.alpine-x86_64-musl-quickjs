@@ -5,11 +5,11 @@
 # and Rust dependencies available.
 FROM alpine:latest
 
-ARG LLVM_VERSION=22.1.8
-ARG LLVM_MAJOR=22
-ARG LLVM_URL=https://github.com/laputa-systems/llvm-prebuilt-musl/releases/download/llvm-musl-22.1.8-a254783/clang%2Bllvm-22.1.8-x86_64-linux-musl.tar.xz
-ARG LLVM_SHA256=f07fa0c93913433a6b6ed79b38452fa516692e87afff512ef46e3b4a200ce3df
-ARG LLVM_SIZE=78241204
+ARG LLVM_VERSION=23.1.0-rc2
+ARG LLVM_MAJOR=23
+ARG LLVM_URL=https://github.com/laputa-systems/llvm-prebuilt-musl/releases/download/llvm-musl-23.1.0-rc2-c72c957/clang%2Bllvm-23.1.0-rc2-x86_64-linux-musl.tar.xz
+ARG LLVM_SHA256=cf90f119fac7e55088e3b718c8a956370d940b004ea5b4f36f629717bc108543
+ARG LLVM_SIZE=80066004
 ARG RUST_TARGET=x86_64-alpine-linux-musl
 ARG BUILD_DENORT=1
 ARG BUILD_PROFILE=debug
@@ -69,7 +69,7 @@ ENV PATH="/opt/llvm-musl/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
     CFLAGS="-Wno-unknown-warning-option" \
     CXXFLAGS="-Wno-unknown-warning-option" \
     LIBRARY_PATH="/opt/llvm-musl/lib" \
-    LIBCLANG_PATH="/usr/lib/llvm22/lib" \
+    LIBCLANG_PATH="/usr/lib/llvm23/lib" \
     CCACHE_DIR="/ccache" \
     CCACHE_TEMPDIR="/ccache/tmp" \
     CCACHE_COMPILERCHECK=content \
