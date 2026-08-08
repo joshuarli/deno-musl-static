@@ -117,6 +117,32 @@ The comparison uses the existing `target/macos-aarch64-quickjs` cache and the
 | `denort` release binary | 48,952,816 B | 47,337,232 B | -1,615,584 B (-3.30%) |
 | Combined binaries | 123,523,968 B | 120,220,960 B | -3,303,008 B (-2.67%) |
 
+## Completed: remove Clap from CLI parsing
+
+The CLI now uses the existing static `deno_cli_parser` command definitions and
+typed conversion path instead of constructing a Clap command tree. This is
+smaller and avoids adding `lexopt`; the parser is intentionally a lossy,
+`String`-based boundary for this QuickJS profile. The CLI no longer depends on
+`clap`, `clap_complete`, or `clap_complete_fig`. Clap remains in the workspace
+only because the unrelated `dcore` utility still uses it.
+
+The cut preserves normal flag parsing, `deno --version`, and
+`deno compile --engine quickjs`. It drops Clap's rich typo suggestions and
+dynamic shell completion. The existing parser crate's parity tests remain
+available independently of the CLI binary.
+
+### Measured result
+
+The comparison uses the existing `target/macos-aarch64-quickjs` cache and the
+`release-quickjs` profile; no target directory was removed or reset.
+
+| Measurement | Before Clap cut | After Clap cut | Difference |
+| --- | ---: | ---: | ---: |
+| Normal/build package IDs | 767 | 758 | -9 (-1.17%) |
+| `deno` release binary | 72,883,728 B | 72,188,848 B | -694,880 B (-0.95%) |
+| `denort` release binary | 47,337,232 B | 47,337,232 B | 0 (0.00%) |
+| Combined binaries | 120,220,960 B | 119,526,080 B | -694,880 B (-0.58%) |
+
 ## Completed: remove isolated runtime and CLI features
 
 The following cuts are explicit QuickJS-only feature boundaries, each kept in
@@ -185,17 +211,7 @@ isolated build each.
    1-4 MB per release binary, with medium implementation friction because
    worker initialization and FFI globals/declarations must be gated.
 
-2. QUIC/WebTransport plus the Deno Deploy tunnel is the next potentially
-   meaningful backend cut. Pi has no tunnel or WebTransport use, but
-   `deno_net` directly compiles both `quinn` and `deno_tunnel`; removing only
-   `deno_tunnel` would therefore save little. A useful cut would feature-gate
-   `ext/net/quic.rs`, the WebTransport globals, tunnel ops, and the CLI tunnel
-   startup path together. This is likely more valuable than the small isolated
-   cuts below, but it is a medium/high-friction API boundary and its exact
-   binary impact needs an isolated build because some TLS/QUIC dependencies
-   are shared with other networking code.
-
-3. `deno_inspector_server` is a plausible cut if pi will never use
+2. `deno_inspector_server` is a plausible cut if pi will never use
    `--inspect` or DevTools connections. It is a runtime/debugging boundary,
    but worker inspector channels and CLI inspector setup need to be gated.
    Expected impact: one workspace package plus roughly 0.5-1.5 MB per release

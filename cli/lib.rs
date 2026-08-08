@@ -43,6 +43,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use args::TaskFlags;
+use deno_cli_parser::CliErrorKind;
 #[cfg(feature = "quic")]
 use deno_config::glob::FilePatterns;
 use deno_core::anyhow::Context;
@@ -413,33 +414,7 @@ async fn run_subcommand(
             let script_err_msg = script_err.to_string();
             if should_fallback_on_run_error(script_err_msg.as_str()) {
               if run_flags.bare {
-                let mut cmd = args::clap_root();
-                cmd.build();
-                let command_names = cmd
-                  .get_subcommands()
-                  .map(|command| command.get_name())
-                  .collect::<Vec<_>>();
-                let suggestions =
-                  args::did_you_mean(&run_flags.script, command_names);
-                if !suggestions.is_empty() && !run_flags.script.contains('.') {
-                  let mut error =
-                    clap::error::Error::<clap::error::DefaultFormatter>::new(
-                      clap::error::ErrorKind::InvalidSubcommand,
-                    )
-                    .with_cmd(&cmd);
-                  error.insert(
-                    clap::error::ContextKind::InvalidSubcommand,
-                    clap::error::ContextValue::String(run_flags.script.clone()),
-                  );
-                  error.insert(
-                    clap::error::ContextKind::SuggestedSubcommand,
-                    clap::error::ContextValue::Strings(suggestions),
-                  );
-
-                  Err(error.into())
-                } else {
-                  Err(script_err)
-                }
+                Err(script_err)
               } else {
                 let mut new_flags = flags.deref().clone();
                 let task_flags = TaskFlags {
@@ -992,27 +967,28 @@ async fn resolve_flags_and_init(
   args: Vec<std::ffi::OsString>,
   initial_cwd: Option<std::path::PathBuf>,
 ) -> Result<Flags, AnyError> {
-  // this env var is used by clap to enable dynamic completions, it's set by the shell when
-  // executing deno to get dynamic completions.
+  // This env var is set by shells probing for dynamic completions.
   if std::env::var("COMPLETE").is_ok() {
     let cwd = resolve_cwd(initial_cwd.as_deref())?;
     crate::args::handle_shell_completion(&cwd)?;
     deno_runtime::exit(0);
   }
 
-  boot_phase("before clap parse");
+  boot_phase("before argument parse");
   let mut flags =
     match flags_from_vec_with_initial_cwd(args, initial_cwd.clone()) {
       Ok(flags) => {
-        boot_phase("after clap parse");
+        boot_phase("after argument parse");
         flags
       }
-      Err(err @ clap::Error { .. })
-        if err.kind() == clap::error::ErrorKind::DisplayVersion =>
-      {
-        boot_phase("clap parse (version exit)");
+      Err(err) if err.kind == CliErrorKind::DisplayVersion => {
+        boot_phase("argument parse (version exit)");
         // Ignore results to avoid BrokenPipe errors.
-        let _ = err.print();
+        let _ = writeln!(
+          std::io::stdout(),
+          "{}",
+          deno_lib::version::DENO_VERSION_INFO.deno
+        );
         deno_runtime::exit(0);
       }
       Err(err) => exit_for_error(AnyError::from(err), initial_cwd.as_deref()),
