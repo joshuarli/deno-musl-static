@@ -14,6 +14,7 @@ use deno_npm_installer::PackageCaching;
 use deno_npm_installer::graph::NpmCachingStrategy;
 use deno_path_util::resolve_url_or_path;
 use deno_runtime::WorkerExecutionMode;
+use deno_runtime::deno_telemetry;
 use deno_semver::npm::NpmPackageReqReference;
 
 use crate::args::EvalFlags;

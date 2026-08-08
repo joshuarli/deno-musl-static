@@ -12,6 +12,7 @@ import {
   op_bootstrap_no_color,
   op_bootstrap_pid,
   op_bootstrap_stderr_no_color,
+  op_bootstrap_telemetry_enabled,
   op_bootstrap_stdout_no_color,
   op_get_ext_import_meta_proto,
   op_internal_log,
@@ -127,6 +128,9 @@ const { SymbolMetadata } = core.loadExtScript("ext:deno_web/00_infra.js");
 //   [3..] zero or more propagator ids; if no propagator is configured the
 //         array ends at length 3.
 function bootstrapOtel(otelConfig) {
+  if (!op_bootstrap_telemetry_enabled()) {
+    return;
+  }
   if (
     otelConfig[0] === 0 &&
     otelConfig[1] === 0 &&

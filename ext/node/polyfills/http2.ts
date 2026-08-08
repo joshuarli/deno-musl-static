@@ -3,7 +3,7 @@
 // Copyright Joyent and Node contributors. All rights reserved. MIT license.
 
 (function () {
-const { core, primordials } = __bootstrap;
+const { core, internals, primordials } = __bootstrap;
 
 const { internalRidSymbol } = core;
 const {
@@ -238,15 +238,13 @@ const {
   Http2ServerResponse,
   onServerStream,
 } = core.loadExtScript("ext:deno_node/internal/http2/compat.js");
-const { updateSpanFromError } = core.loadExtScript(
-  "ext:deno_telemetry/util.ts",
-);
+const { updateSpanFromError } = internals.__telemetryUtil;
 const {
   otelState,
   builtinTracer,
   ContextManager,
   SPAN_KEY,
-} = core.loadExtScript("ext:deno_telemetry/telemetry.ts");
+} = internals.__telemetry;
 const onClientStreamCreatedChannel = dc.channel("http2.client.stream.created");
 const onClientStreamStartChannel = dc.channel("http2.client.stream.start");
 const onClientStreamErrorChannel = dc.channel("http2.client.stream.error");

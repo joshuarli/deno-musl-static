@@ -55,7 +55,7 @@ use deno_runtime::deno_permissions::PathDescriptor;
 use deno_runtime::deno_permissions::PermissionsOptions;
 use deno_semver::StackString;
 use deno_semver::npm::NpmPackageReqReference;
-use deno_telemetry::OtelConfig;
+use deno_runtime::deno_telemetry::OtelConfig;
 use deno_terminal::colors;
 pub use flags::*;
 use once_cell::sync::Lazy;

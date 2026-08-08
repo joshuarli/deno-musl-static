@@ -116,15 +116,13 @@ const onClientRequestCreatedChannel = channel("http.client.request.created");
 const onClientRequestStartChannel = channel("http.client.request.start");
 const onClientRequestErrorChannel = channel("http.client.request.error");
 const onClientResponseFinishChannel = channel("http.client.response.finish");
-const { updateSpanFromError } = core.loadExtScript(
-  "ext:deno_telemetry/util.ts",
-);
+const { updateSpanFromError } = internals.__telemetryUtil;
 const {
   otelState,
   builtinTracer,
   ContextManager,
   SPAN_KEY,
-} = core.loadExtScript("ext:deno_telemetry/telemetry.ts");
+} = internals.__telemetry;
 
 const INVALID_PATH_REGEX = new SafeRegExp(/[^\u0021-\u00ff]/);
 const kError = Symbol("kError");

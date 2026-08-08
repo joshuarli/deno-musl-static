@@ -13,7 +13,9 @@ upstream. V8 builds should retain their existing behavior.
 - `deno_napi` is a real runtime dependency, not just a linker helper. Workers
   initialize it and the CLI uses it for Node-API native addon loading. Removing
   it would remove native addon support from the QuickJS binary.
-- `deno_telemetry` is still enabled and is intentionally deferred.
+- QuickJS omits `deno_image`, `deno_lint`, `deno_doc`, `deno_kv`, and
+  `deno_telemetry`. V8 retains those features through its existing feature
+  set.
 - The macOS Makefile now builds `deno` and `denort` in one Cargo invocation,
   allowing Cargo to share their resolved build units. The `deno` build script
   no longer depends on `deno_runtime` just to reach linker-flag helpers.
@@ -88,6 +90,45 @@ larger binary reduction.
 The release QuickJS smoke test reports `undefined` for
 `navigator.gpu`, `GPU`, `OffscreenCanvas`, and `Deno.unstable?.webgpu`.
 
+## Completed: remove isolated runtime and CLI features
+
+The following cuts are explicit QuickJS-only feature boundaries, each kept in
+its own commit so they can be rebased or reverted independently:
+
+| Cut | QuickJS package IDs after cut | Change from previous step |
+| --- | ---: | ---: |
+| WebGPU and coupled Canvas | 831 | -31 |
+| `deno_image` | 818 | -13 |
+| `deno_lint` | 815 | -3 |
+| `deno_doc` | 793 | -22 |
+| `deno_kv` and `denokv_*` | 787 | -6 |
+| `deno_telemetry` and its QuickJS exporters | 777 | -10 |
+
+`deno_kv` owns `Deno.openKv()`, including the local SQLite backend and the
+remote KV protocol. Removing it does not remove SQLite itself: the cache,
+Web Storage, and Node SQLite paths still share `rusqlite`.
+
+`deno_telemetry` provides OpenTelemetry-based tracing, metrics, log/event
+export, HTTP instrumentation, and `Deno.telemetry`. The QuickJS boundary
+keeps the surrounding CLI and HTTP interfaces compiling with no-op fallback
+types while omitting the telemetry extension and exporter graph. V8 keeps the
+full implementation.
+
+### Final measured result
+
+The final comparison uses the existing `target/macos-aarch64-quickjs` cache
+and the `release-quickjs` profile; no target directory was removed or reset.
+
+| Measurement | Before all cuts | After all cuts | Difference |
+| --- | ---: | ---: | ---: |
+| Normal/build package IDs | 862 | 777 | -85 (-9.86%) |
+| `deno` release binary | 92,101,840 B | 74,571,152 B | -17,530,688 B (-19.03%) |
+| `denort` release binary | 58,095,968 B | 48,952,816 B | -9,143,152 B (-15.74%) |
+| Combined binaries | 150,197,808 B | 123,523,968 B | -26,673,840 B (-17.76%) |
+
+Relative to the WebGPU-only build, the later cuts remove another 54 package
+IDs and 15,997,312 B from the combined release binaries (-11.47%).
+
 ### Validation
 
 Use the existing target directory and run focused checks:
@@ -106,50 +147,28 @@ continue to produce both binaries. Do not delete or recreate the target cache.
 
 ## Next-step candidates
 
-These are recommendations for the `~/d/pi` runtime profile; no additional
-candidate has been changed yet.
+These are recommendations for the `~/d/pi` runtime profile. They are not
+changed yet; estimates are graph-level and should be confirmed with one
+isolated build each.
 
-1. `deno_lint` and `deno_doc` are the cleanest CLI-only cuts. They are pulled
-   by `cli/Cargo.toml` for the `lint`/`doc` commands and related LSP support,
-   not by the runtime extension graph. A small `lean-runtime` feature could
-   omit those commands and LSP providers together. This should remove more
-   compile-time and binary weight than another individual browser API, with
-   the explicit tradeoff that `deno lint`, `deno doc`, and their LSP features
-   disappear from this profile.
+1. `deno_ffi` (`Deno.dlopen`) is the strongest next cut. Its QuickJS path
+   brings in the Cranelift family, `libffi`, and dynamic-loader glue; the
+   current graph shows roughly 15 Cranelift package IDs that are only reached
+   through this feature. Expected impact: roughly 15-20 package IDs and about
+   1-4 MB per release binary, with medium implementation friction because
+   worker initialization and FFI globals/declarations must be gated.
 
-2. `deno_image` is a relatively contained browser API cut. It implements
-   `ImageBitmap`/`createImageBitmap` and pulls the Rust `image` codec family;
-   QuickJS already no longer needs its WebGPU/Jupyter path. Making it an
-   optional runtime feature would require gating the image extension,
-   `ImageBitmap` globals, and declarations, but is still a straightforward
-   follow-up.
+2. `deno_napi` (Node-API native addons) is a good second cut if `~/d/pi` does
+   not load native npm addons. It has a dedicated `libuv-sys-lite` backend and
+   N-API loader/symbol-generation code, but much of its surrounding graph is
+   shared with Node support. Expected impact: roughly 3-5 package IDs and
+   about 0.5-2 MB per release binary; implementation friction is medium/high
+   because the loader, finalizers, Node module path, and declarations are
+   intertwined in the worker.
 
-3. KV is probably the next larger runtime cut, but it has more coupling than
-   its lazy JS API suggests. `deno_kv` supplies `Deno.openKv()` and currently
-   initializes a local SQLite backend plus a remote HTTP backend through
-   `denokv_proto`, `denokv_sqlite`, and `denokv_remote`. Removing it can drop
-   that denokv family and its protocol/remote code, but it will not remove all
-   SQLite: `deno_cache`, Web Storage, and Node SQLite also use `rusqlite`.
-   The safe shape is another explicit runtime feature, then gating worker
-   initialization, the lazy `01_db.ts` module, unstable KV declarations, and
-   the related CLI/storage plumbing.
-
-4. `deno_telemetry` remains deferred. It has a broader configuration,
-   HTTP/logging, bootstrap, and exporter surface than these candidates, so it
-   is better handled after the isolated runtime cuts are measured.
-
-## Deferred task: remove telemetry
-
-`deno_telemetry` provides:
-
-- the `Deno.telemetry` tracer, meter, and span runtime extension;
-- HTTP request metrics and tracing in `ext/http`;
-- CLI logging, bootstrap configuration, standalone metadata, and error-event
-  integration;
-- OTLP HTTP, custom gRPC, and console exporters with `OTEL_*` configuration.
-
-Its initialization is a runtime no-op when tracing, metrics, and console
-capture are disabled, but the implementation and OpenTelemetry dependency
-family still compile. Removing it requires a separate feature boundary across
-`runtime`, `ext/http`, CLI bootstrap/configuration, and logging. Keep this out
-of the WebGPU change so the QuickJS reduction remains easy to rebase and test.
+3. `deno_node_sqlite` removes the `node:sqlite` compatibility API. It is easy
+   to identify and feature-gate, but it will not remove `rusqlite` or the
+   bundled SQLite library because cache and Web Storage still use them.
+   Expected impact: one guaranteed workspace package plus a modest binary
+   reduction, likely under 1 MB per binary; implementation friction is low to
+   medium.

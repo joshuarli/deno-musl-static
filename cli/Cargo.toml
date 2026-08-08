@@ -32,6 +32,7 @@ v8 = [
   "deno_core/v8",
   "deno_snapshots/v8_snapshot",
   "deno_runtime/kv",
+  "deno_runtime/telemetry",
   "lsp",
   "webgpu",
   "v8/v8",
@@ -67,7 +68,16 @@ upgrade = []
 hmr = ["deno_runtime/hmr", "deno_snapshots/disable"]
 # Vendor zlib as zlib-ng
 __vendored_zlib_ng = ["flate2/zlib-ng-compat", "libz-sys/zlib-ng"]
-lsp-tracing = ["dep:tracing", "dep:tracing-subscriber", "dep:tracing-opentelemetry", "opentelemetry-otlp/grpc-tonic"]
+lsp-tracing = [
+  "dep:tracing",
+  "dep:tracing-subscriber",
+  "dep:tracing-opentelemetry",
+  "dep:opentelemetry",
+  "dep:opentelemetry-otlp",
+  "dep:opentelemetry-semantic-conventions",
+  "dep:opentelemetry_sdk",
+  "opentelemetry-otlp/grpc-tonic",
+]
 # Custom panic trace with `deno_panic`
 panic-trace = ["deno_panic"]
 # Linux release builds remove DWARF unwind tables and trace with frame pointers.
@@ -115,7 +125,6 @@ deno_semver.workspace = true
 deno_signals.workspace = true
 deno_snapshots.workspace = true
 deno_task_shell.workspace = true
-deno_telemetry.workspace = true
 deno_terminal.workspace = true
 eszip.workspace = true
 libsui.workspace = true
@@ -183,10 +192,10 @@ msi.workspace = true
 notify.workspace = true
 once_cell.workspace = true
 open.workspace = true
-opentelemetry.workspace = true
-opentelemetry-otlp.workspace = true
-opentelemetry-semantic-conventions.workspace = true
-opentelemetry_sdk.workspace = true
+opentelemetry = { workspace = true, optional = true }
+opentelemetry-otlp = { workspace = true, optional = true }
+opentelemetry-semantic-conventions = { workspace = true, optional = true }
+opentelemetry_sdk = { workspace = true, optional = true }
 p256.workspace = true
 pathdiff.workspace = true
 percent-encoding.workspace = true

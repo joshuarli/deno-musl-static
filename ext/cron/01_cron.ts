@@ -15,10 +15,8 @@ const {
   ContextManager,
   enterSpan,
   restoreSnapshot,
-} = core.loadExtScript("ext:deno_telemetry/telemetry.ts");
-const { updateSpanFromError } = core.loadExtScript(
-  "ext:deno_telemetry/util.ts",
-);
+} = internals.__telemetry;
+const { updateSpanFromError } = internals.__telemetryUtil;
 
 function formatToCronSchedule(
   value?: number | { exact: number | number[] } | {

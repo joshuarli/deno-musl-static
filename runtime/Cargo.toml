@@ -25,6 +25,7 @@ quickjs = ["deno_core/quickjs"]
 transpile = ["deno_ast"]
 image = ["dep:deno_image"]
 kv = ["dep:deno_kv"]
+telemetry = ["dep:deno_telemetry", "deno_http/telemetry"]
 webgpu = ["dep:deno_canvas", "dep:deno_webgpu", "image", "deno_image/webgpu"]
 
 [lints.rust]
@@ -67,7 +68,7 @@ deno_permissions.workspace = true
 deno_process.workspace = true
 deno_resolver = { workspace = true, features = ["sync"] }
 deno_signals.workspace = true
-deno_telemetry.workspace = true
+deno_telemetry = { workspace = true, optional = true }
 deno_terminal.workspace = true
 deno_tls.workspace = true
 deno_web.workspace = true

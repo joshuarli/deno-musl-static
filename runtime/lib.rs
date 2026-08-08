@@ -22,7 +22,11 @@ pub use deno_node;
 pub use deno_os;
 pub use deno_permissions;
 pub use deno_process;
+#[cfg(feature = "telemetry")]
 pub use deno_telemetry;
+#[cfg(not(feature = "telemetry"))]
+#[path = "telemetry_stub.rs"]
+pub mod deno_telemetry;
 pub use deno_terminal::colors;
 pub use deno_tls;
 pub use deno_web;

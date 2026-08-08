@@ -73,6 +73,7 @@ use super::fly_accept_encoding;
 use crate::LocalExecutor;
 use crate::Options;
 use crate::OtelInfo;
+#[cfg(feature = "telemetry")]
 use crate::OtelInfoAttributes;
 use crate::compressible::is_content_compressible;
 use crate::extract_network_stream;
@@ -246,6 +247,8 @@ impl HttpRecordExternal {
     }
   }
 
+  #[cfg_attr(not(feature = "telemetry"), allow(dead_code))]
+  #[allow(dead_code)]
   fn otel_info_set_error(&self, error: &'static str) {
     match self {
       Self::Hyper(record) => record.otel_info_set_error(error),
@@ -253,6 +256,7 @@ impl HttpRecordExternal {
     }
   }
 
+  #[cfg(feature = "telemetry")]
   fn copy_span_to_otel_info(&self, span: &deno_telemetry::OtelSpan) {
     match self {
       Self::Hyper(record) => record.copy_span_to_otel_info(span),
@@ -290,6 +294,7 @@ macro_rules! clone_external {
 
 /// Try to clone Rc<HttpRecord> from raw external pointer.
 /// Returns None if the pointer has already been consumed by take_external.
+#[cfg(feature = "telemetry")]
 macro_rules! try_clone_external {
   ($external:expr) => {{
     let ptr = $external;
@@ -411,6 +416,7 @@ impl RawMethod {
     matches!(self, Self::Options)
   }
 
+  #[cfg(feature = "telemetry")]
   fn as_cow(&self) -> Cow<'static, str> {
     match self {
       Self::Get => Cow::Borrowed("GET"),
@@ -632,6 +638,7 @@ impl RawRequestHeaders {
   }
 }
 
+#[cfg(feature = "telemetry")]
 struct RawOtelInfoAttributes {
   method: Cow<'static, str>,
   scheme: Cow<'static, str>,
@@ -639,6 +646,7 @@ struct RawOtelInfoAttributes {
   server_port: Option<i64>,
 }
 
+#[cfg(feature = "telemetry")]
 impl RawOtelInfoAttributes {
   fn new(
     request_info: &HttpConnectionProperties,
@@ -680,10 +688,12 @@ impl RawOtelInfoAttributes {
   }
 }
 
+#[cfg(feature = "telemetry")]
 fn raw_otel_scheme(scheme_prefix: &'static str) -> &'static str {
   scheme_prefix.strip_suffix("://").unwrap_or(scheme_prefix)
 }
 
+#[cfg(feature = "telemetry")]
 fn split_authority(authority: &str) -> (&str, Option<u16>) {
   let Some((address, port)) = authority.rsplit_once(':') else {
     return (authority, None);
@@ -1150,6 +1160,7 @@ enum RawRequestBody {
 struct RawHttpRecordOptions {
   request_body: Option<RawRequestBody>,
   upgrade: Option<Rc<RawUpgrade>>,
+  #[cfg(feature = "telemetry")]
   request_size: u64,
   automatic_compression: bool,
   server_state: SignallingRc<HttpServerState>,
@@ -1176,6 +1187,7 @@ struct RawHttpRecordInner {
   response_ready_waker: Option<std::task::Waker>,
   response_body_finished: bool,
   response_body_waker: Option<std::task::Waker>,
+  #[cfg_attr(not(feature = "telemetry"), allow(dead_code))]
   otel_info: Option<OtelInfo>,
   automatic_compression: bool,
   /// Held so the websocket upgrade op can clone the per-server lifetime
@@ -1203,6 +1215,7 @@ impl RawHttpRecord {
     } else {
       None
     };
+    #[cfg(feature = "telemetry")]
     let otel_info = deno_telemetry::OTEL_GLOBALS
       .get()
       .filter(|o| o.has_metrics())
@@ -1215,6 +1228,8 @@ impl RawHttpRecord {
             .into_attributes(),
         )
       });
+    #[cfg(not(feature = "telemetry"))]
+    let otel_info = None;
     Rc::new(Self(RefCell::new(RawHttpRecordInner {
       request_info,
       client_addr,
@@ -1346,6 +1361,7 @@ impl RawHttpRecord {
   fn set_status(&self, status: u16) {
     let mut inner = self.0.borrow_mut();
     inner.response_status = status;
+    #[cfg(feature = "telemetry")]
     if let Some(info) = inner.otel_info.as_mut() {
       info.attributes.http_response_status_code = Some(status as _);
       info.handle_duration_and_request_size();
@@ -1476,23 +1492,30 @@ impl RawHttpRecord {
     }
   }
 
-  fn add_otel_response_size(&self, size: usize) {
-    let mut inner = self.0.borrow_mut();
-    if let Some(info) = inner.otel_info.as_mut()
-      && let Some(total) = info.response_size.as_mut()
+  fn add_otel_response_size(&self, _size: usize) {
+    #[cfg(feature = "telemetry")]
     {
-      *total += size as u64;
+      let mut inner = self.0.borrow_mut();
+      if let Some(info) = inner.otel_info.as_mut()
+        && let Some(total) = info.response_size.as_mut()
+      {
+        *total += _size as u64;
+      }
     }
   }
 
-  fn otel_info_set_error(&self, error: &'static str) {
-    let mut inner = self.0.borrow_mut();
-    if let Some(info) = inner.otel_info.as_mut() {
-      info.attributes.error_type = Some(error);
-      info.handle_duration_and_request_size();
+  fn otel_info_set_error(&self, _error: &'static str) {
+    #[cfg(feature = "telemetry")]
+    {
+      let mut inner = self.0.borrow_mut();
+      if let Some(info) = inner.otel_info.as_mut() {
+        info.attributes.error_type = Some(_error);
+        info.handle_duration_and_request_size();
+      }
     }
   }
 
+  #[cfg(feature = "telemetry")]
   fn copy_span_to_otel_info(&self, span: &deno_telemetry::OtelSpan) {
     let mut inner = self.0.borrow_mut();
     let Some(info) = inner.otel_info.as_mut() else {
@@ -3326,6 +3349,7 @@ struct RawParsedRequest {
   keep_alive: bool,
   expect_continue: bool,
   has_body: bool,
+  #[cfg(feature = "telemetry")]
   request_size: u64,
   request_body_len: Option<u64>,
   upgrade: Option<h1::UpgradeKind>,
@@ -3368,6 +3392,7 @@ fn raw_request_from_h1(
       request.body,
       h1::BodyKind::Empty | h1::BodyKind::Upgrade
     ),
+    #[cfg(feature = "telemetry")]
     request_size: match request.body {
       h1::BodyKind::ContentLength(length) => length,
       _ => 0,
@@ -4422,6 +4447,7 @@ async fn serve_http11_raw(
         RawHttpRecordOptions {
           request_body: Some(RawRequestBody::Prebuffered(body)),
           upgrade: None,
+          #[cfg(feature = "telemetry")]
           request_size: parsed.request_size,
           automatic_compression,
           server_state: server_state.clone(),
@@ -4552,6 +4578,7 @@ async fn serve_http11_raw(
         RawHttpRecordOptions {
           request_body: request_body_resource.map(RawRequestBody::Streaming),
           upgrade: upgrade.clone(),
+          #[cfg(feature = "telemetry")]
           request_size: parsed.request_size,
           automatic_compression,
           server_state: server_state.clone(),
@@ -4744,6 +4771,7 @@ async fn serve_http11_raw(
       RawHttpRecordOptions {
         request_body: None,
         upgrade: None,
+        #[cfg(feature = "telemetry")]
         request_size: parsed.request_size,
         automatic_compression,
         server_state: server_state.clone(),
@@ -5871,16 +5899,20 @@ pub async fn op_raw_write_vectored(
 }
 
 #[op2(fast)]
-pub fn op_http_metric_handle_otel_error(external: *const c_void) {
-  // SAFETY: The external may have already been consumed by a take_external!
-  // call. Gracefully skip if the pointer is no longer valid.
-  let Some(http) = (unsafe { try_clone_external!(external) }) else {
-    return;
-  };
+pub fn op_http_metric_handle_otel_error(_external: *const c_void) {
+  #[cfg(feature = "telemetry")]
+  {
+    // SAFETY: The external may have already been consumed by a take_external!
+    // call. Gracefully skip if the pointer is no longer valid.
+    let Some(http) = (unsafe { try_clone_external!(_external) }) else {
+      return;
+    };
 
-  http.otel_info_set_error("user");
+    http.otel_info_set_error("user");
+  }
 }
 
+#[cfg(feature = "telemetry")]
 #[op2(fast)]
 pub fn op_http_copy_span_to_otel_info(
   external: *const c_void,
@@ -5896,3 +5928,7 @@ pub fn op_http_copy_span_to_otel_info(
 
   http.copy_span_to_otel_info(span);
 }
+
+#[cfg(not(feature = "telemetry"))]
+#[op2(fast)]
+pub fn op_http_copy_span_to_otel_info(_external: *const c_void) {}
