@@ -37,11 +37,11 @@ use deno_core::v8;
 use deno_cron::CronHandler;
 use deno_cron::CronHandlerImpl;
 use deno_error::JsErrorBox;
-use deno_ffi::DenoRtNativeAddonLoaderRc;
 use deno_fs::FileSystem;
 use deno_io::Stdio;
 #[cfg(feature = "kv")]
 use deno_kv::dynamic::MultiBackendDbHandler;
+use deno_napi::DenoRtNativeAddonLoaderRc;
 use deno_node::ExtNodeSys;
 use deno_node::NodeExtInitServices;
 use deno_os::ExitCode;
@@ -660,7 +660,6 @@ impl MainWorker {
           )),
           deno_kv::KvConfig::builder().build(),
         ),
-        #[cfg(feature = "napi")]
         deno_napi::deno_napi::args(
           services.deno_rt_native_addon_loader.clone(),
         ),
@@ -1124,7 +1123,6 @@ impl MainWorker {
   /// Runs pending NAPI ref/wrap finalizers by calling them directly while V8
   /// is still alive. This matches Node.js behavior where `napi_env::DeleteMe()`
   /// calls `RefTracker::FinalizeAll()` during environment teardown.
-  #[cfg(feature = "napi")]
   pub fn run_napi_ref_finalizers(&mut self) {
     let finalizers = {
       let op_state = self.js_runtime.op_state();
@@ -1157,9 +1155,6 @@ impl MainWorker {
       }
     }
   }
-
-  #[cfg(not(feature = "napi"))]
-  pub fn run_napi_ref_finalizers(&mut self) {}
 
   /// Dispatches "beforeunload" event to the JavaScript runtime. Returns a boolean
   /// indicating if the event was prevented and thus event loop should continue
@@ -1235,7 +1230,6 @@ fn common_extensions<
     #[cfg(feature = "kv")]
     deno_kv::deno_kv::lazy_init(),
     deno_cron::deno_cron::init(Box::new(CronHandlerImpl::create_from_env())),
-    #[cfg(feature = "napi")]
     deno_napi::deno_napi::lazy_init(),
     deno_http::deno_http::lazy_init(),
     deno_io::deno_io::lazy_init(),

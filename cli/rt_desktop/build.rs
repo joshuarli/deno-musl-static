@@ -13,11 +13,9 @@ fn main() {
   // The print_linker_flags() functions use cargo:rustc-link-arg-bin
   // which only applies to binary targets, so we emit cdylib-specific
   // linker args here instead.
-  #[cfg(feature = "v8")]
   print_cdylib_napi_linker_flags();
 }
 
-#[cfg(feature = "v8")]
 fn print_cdylib_napi_linker_flags() {
   let symbols_file_name = match std::env::consts::OS {
     "android" | "freebsd" | "openbsd" => {

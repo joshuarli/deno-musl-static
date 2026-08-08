@@ -54,7 +54,6 @@ pub fn runtime_extensions(
     deno_cron::deno_cron::init(Box::new(
       deno_cron::local::LocalCronHandler::new(),
     )),
-    #[cfg(feature = "napi")]
     deno_napi::deno_napi::lazy_init(),
     deno_http::deno_http::lazy_init(),
     deno_io::deno_io::lazy_init(),
