@@ -82,9 +82,13 @@ pub fn main() {
   deno_runtime::deno_permissions::mark_standalone();
 
   let args: Vec<_> = env::args_os().collect();
+  let standalone = extract_standalone(Cow::Owned(args.clone()));
+  // A compiled application owns --version. Bare denort still needs the flag
+  // so the compiler can inspect the matching runtime version.
   if args
     .get(1)
     .is_some_and(|arg| arg == "--version" || arg == "-V")
+    && standalone.is_err()
   {
     println!("{}", deno_lib::version::version_with_git_short_hash());
     return;
@@ -94,7 +98,6 @@ pub fn main() {
     .install_default()
     .unwrap();
 
-  let standalone = extract_standalone(Cow::Owned(args));
   let future = async move {
     match standalone {
       Ok(data) => {
