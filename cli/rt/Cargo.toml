@@ -34,13 +34,11 @@ quickjs = [
   "deno_v8_backend/quickjs",
 ]
 musl-mimalloc = ["dep:mimalloc"]
-napi = ["deno_runtime/napi"]
 v8 = [
   "deno_core/v8",
   "dep:deno_core",
   "dep:deno_runtime",
   "deno_runtime/kv",
-  "napi",
   "deno_runtime/telemetry",
   "deno_runtime/webgpu",
   "deno_snapshots/v8_snapshot",

@@ -41,11 +41,11 @@ use deno_core::serde_json::json;
 use deno_core::v8;
 use deno_cron::CronHandlerImpl;
 use deno_error::JsErrorClass;
-use deno_ffi::DenoRtNativeAddonLoaderRc;
 use deno_fs::FileSystem;
 use deno_io::Stdio;
 #[cfg(feature = "kv")]
 use deno_kv::dynamic::MultiBackendDbHandler;
+use deno_napi::DenoRtNativeAddonLoaderRc;
 use deno_node::ExtNodeSys;
 use deno_node::NodeExtInitServices;
 use deno_permissions::PermissionsContainer;
@@ -591,7 +591,6 @@ impl WebWorker {
         deno_kv::KvConfig::builder().build(),
       ),
       deno_cron::deno_cron::init(Box::new(CronHandlerImpl::create_from_env())),
-      #[cfg(feature = "napi")]
       deno_napi::deno_napi::init(services.deno_rt_native_addon_loader.clone()),
       deno_http::deno_http::init(deno_http::Options {
         no_legacy_abort: options.bootstrap.no_legacy_abort,

@@ -103,7 +103,6 @@ its own commit so they can be rebased or reverted independently:
 | `deno_doc` | 793 | -22 |
 | `deno_kv` and `denokv_*` | 787 | -6 |
 | `deno_telemetry` and its QuickJS exporters | 777 | -10 |
-| `deno_napi` and its QuickJS-only support crates | 773 | -4 |
 
 `deno_kv` owns `Deno.openKv()`, including the local SQLite backend and the
 remote KV protocol. Removing it does not remove SQLite itself: the cache,
@@ -115,13 +114,6 @@ keeps the surrounding CLI and HTTP interfaces compiling with no-op fallback
 types while omitting the telemetry extension and exporter graph. V8 keeps the
 full implementation.
 
-`deno_napi` provides Node-API native addon loading. The QuickJS profile now
-omits the extension, its `napi_sym` generator, `libuv-sys-lite`, and its
-QuickJS-only `libloading` version. V8 explicitly enables the feature. The
-shared native-addon loader type remains in `deno_ffi` because FFI and
-standalone VFS plumbing still use it; this does not reintroduce the N-API
-extension.
-
 ### Final measured result
 
 The final comparison uses the existing `target/macos-aarch64-quickjs` cache
@@ -129,16 +121,13 @@ and the `release-quickjs` profile; no target directory was removed or reset.
 
 | Measurement | Before all cuts | After all cuts | Difference |
 | --- | ---: | ---: | ---: |
-| Normal/build package IDs | 862 | 773 | -89 (-10.32%) |
-| `deno` release binary | 92,101,840 B | 75,512,080 B | -16,589,760 B (-18.01%) |
-| `denort` release binary | 58,095,968 B | 48,901,936 B | -9,194,032 B (-15.83%) |
-| Combined binaries | 150,197,808 B | 124,414,016 B | -25,783,792 B (-17.17%) |
+| Normal/build package IDs | 862 | 777 | -85 (-9.86%) |
+| `deno` release binary | 92,101,840 B | 74,571,152 B | -17,530,688 B (-19.03%) |
+| `denort` release binary | 58,095,968 B | 48,952,816 B | -9,143,152 B (-15.74%) |
+| Combined binaries | 150,197,808 B | 123,523,968 B | -26,673,840 B (-17.76%) |
 
-Relative to the WebGPU-only build, the later cuts remove another 58 package
-IDs and 15,107,264 B from the combined release binaries (-10.83%). The N-API
-cut itself removes four package IDs; this particular release link is 890,048 B
-larger than the immediately preceding telemetry-only binary, so its binary
-impact is not positive in this measurement despite the graph reduction.
+Relative to the WebGPU-only build, the later cuts remove another 54 package
+IDs and 15,997,312 B from the combined release binaries (-11.47%).
 
 ### Validation
 
@@ -169,19 +158,40 @@ isolated build each.
    1-4 MB per release binary, with medium implementation friction because
    worker initialization and FFI globals/declarations must be gated.
 
-2. `deno_inspector_server` is a plausible cut if pi will never use
+2. QUIC/WebTransport plus the Deno Deploy tunnel is the next potentially
+   meaningful backend cut. Pi has no tunnel or WebTransport use, but
+   `deno_net` directly compiles both `quinn` and `deno_tunnel`; removing only
+   `deno_tunnel` would therefore save little. A useful cut would feature-gate
+   `ext/net/quic.rs`, the WebTransport globals, tunnel ops, and the CLI tunnel
+   startup path together. This is likely more valuable than the small isolated
+   cuts below, but it is a medium/high-friction API boundary and its exact
+   binary impact needs an isolated build because some TLS/QUIC dependencies
+   are shared with other networking code.
+
+3. `deno_inspector_server` is a plausible cut if pi will never use
    `--inspect` or DevTools connections. It is a runtime/debugging boundary,
    but worker inspector channels and CLI inspector setup need to be gated.
    Expected impact: one workspace package plus roughly 0.5-1.5 MB per release
    binary; implementation friction is medium.
 
-3. `deno_cron` is a small, low-risk API cut if pi does not use
-   `Deno.cron()`. It is unlikely to produce a dramatic binary reduction, but
-   it is relatively contained and should remove one workspace package with
-   less coupling than inspector or FFI. Expected impact: under 0.5 MB per
-   release binary; implementation friction is low to medium.
+`deno_cron` is a smaller, low-risk API cut if pi does not use `Deno.cron()`.
+It is unlikely to produce a dramatic binary reduction, but it is relatively
+contained and should remove one workspace package with less coupling than
+inspector or FFI. Expected impact: under 0.5 MB per release binary;
+implementation friction is low to medium.
 
 ## Investigated but not cut
+
+### `deno_napi`
+
+The cited pi commit `656057422528726e954e49f56dc321070f585264` explicitly
+skips native `.node` loading under QuickJS, and pi’s runtime source does not
+use N-API directly. A temporary feature-gating experiment removed four
+QuickJS package IDs (`deno_napi`, `napi_sym`, `libuv-sys-lite`, and one
+`libloading` version), but the release link was 890,048 B larger overall
+because of linker/layout variation. The change also required touching worker
+initialization, finalizers, standalone loader plumbing, and V8 feature wiring.
+It was reverted as not worth the friction for this profile.
 
 ### `deno_snapshots`
 
@@ -202,8 +212,26 @@ extension and uses its re-export of the shared `DenoRtNativeAddonLoader` type;
 that loader is also used by standalone VFS/native-addon plumbing. Removing
 `deno_ffi` would therefore require gating the FFI extension, its JavaScript
 surface, loader state, and the Cranelift/`libffi` dependency family. It remains
-a plausible next cut for a pi-only profile, but should be isolated after the
-N-API change.
+a plausible next cut for a pi-only profile, but should be isolated separately.
+
+### `deno_webstorage`
+
+Pi’s runtime source does not use `localStorage` or `sessionStorage`, but this
+crate is also the current re-export boundary for `rusqlite`. Several CLI cache
+modules import `deno_runtime::deno_webstorage::rusqlite` directly, so removing
+the Web Storage extension would first require moving those imports to an
+explicit CLI SQLite dependency. That is possible, but it is only one workspace
+package and does not remove SQLite; it is not a worthwhile minimal cut.
+
+### QUIC/WebTransport and `deno_tunnel`
+
+Pi’s source has no Deno tunnel or WebTransport use. However, `deno_net` always
+registers QUIC/WebTransport ops and tunnel ops, and `ext/http` has direct tunnel
+stream/error integration. The CLI also owns tunnel authentication and startup.
+The tunnel crate is therefore not an isolated dependency removal: a useful
+cut would remove or feature-gate the complete QUIC/WebTransport/tunnel surface,
+including its declarations and CLI paths. This is a real candidate only if
+the pi profile is allowed to lose those Deno APIs.
 
 ### SQLite
 

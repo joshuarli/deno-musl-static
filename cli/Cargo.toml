@@ -30,10 +30,8 @@ default = ["v8"]
 v8 = [
   "__runtime_defaults",
   "deno_core/v8",
-  "dep:deno_napi",
   "deno_snapshots/v8_snapshot",
   "deno_runtime/kv",
-  "deno_runtime/napi",
   "deno_runtime/telemetry",
   "lsp",
   "webgpu",
@@ -86,7 +84,7 @@ panic-trace = ["deno_panic"]
 panic-trace-frame-pointer = ["panic-trace", "deno_panic/frame-pointer"]
 
 [build-dependencies]
-deno_napi = { workspace = true, optional = true }
+deno_napi.workspace = true
 deno_webgpu = { workspace = true, optional = true }
 lazy-regex.workspace = true
 serde.workspace = true

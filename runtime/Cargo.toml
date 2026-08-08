@@ -10,7 +10,7 @@ repository.workspace = true
 description = "Provides the deno runtime library"
 
 [features]
-default = ["napi", "webgpu"]
+default = ["webgpu"]
 # "fake" feature that allows to generate docs on docs.rs
 docsrs = []
 # A feature that allows excluding `./js/99_main.js` from the exported extension.
@@ -25,7 +25,6 @@ quickjs = ["deno_core/quickjs"]
 transpile = ["deno_ast"]
 image = ["dep:deno_image"]
 kv = ["dep:deno_kv"]
-napi = ["dep:deno_napi"]
 telemetry = ["dep:deno_telemetry", "deno_http/telemetry"]
 webgpu = ["dep:deno_canvas", "dep:deno_webgpu", "image", "deno_image/webgpu"]
 
@@ -58,7 +57,7 @@ deno_image = { workspace = true, optional = true }
 deno_inspector_server.workspace = true
 deno_io.workspace = true
 deno_kv = { workspace = true, optional = true }
-deno_napi = { workspace = true, optional = true }
+deno_napi.workspace = true
 deno_net.workspace = true
 deno_node.workspace = true
 deno_node_crypto.workspace = true
