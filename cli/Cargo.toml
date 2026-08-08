@@ -25,9 +25,11 @@ harness = false
 
 [features]
 default = ["v8"]
+quic = ["deno_runtime/quic"]
 # The dependency named `v8` is the deno_v8 facade, retained under the existing
 # crate name so the engine integration does not require source-level churn.
 v8 = [
+  "quic",
   "__runtime_defaults",
   "deno_core/v8",
   "deno_snapshots/v8_snapshot",

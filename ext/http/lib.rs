@@ -1840,6 +1840,7 @@ fn extract_network_stream<U: CanDowncastUpgrade>(
       Ok(res) => return res,
       Err(x) => x,
     };
+  #[cfg(feature = "quic")]
   let upgraded =
     match maybe_extract_network_stream::<deno_net::tunnel::TunnelStream, _>(
       upgraded,
@@ -1864,6 +1865,7 @@ pub fn op_http_serve_address_override() -> (u8, String, u32, bool) {
     return parse_serve_address(&val);
   };
 
+  #[cfg(feature = "quic")]
   if deno_net::tunnel::get_tunnel().is_some() {
     return (4, String::new(), 0, true);
   }

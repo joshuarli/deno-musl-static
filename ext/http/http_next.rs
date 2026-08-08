@@ -5456,6 +5456,7 @@ fn is_normal_close(err: &(dyn std::error::Error + 'static)) -> bool {
     return false;
   }
 
+  #[cfg(feature = "quic")]
   if let Some(err) = err.downcast_ref::<deno_net::tunnel::Error>() {
     if let deno_net::tunnel::Error::QuinnConnection(err) = err {
       return is_normal_close(err);
@@ -5464,6 +5465,7 @@ fn is_normal_close(err: &(dyn std::error::Error + 'static)) -> bool {
     return false;
   }
 
+  #[cfg(feature = "quic")]
   if let Some(err) =
     err.downcast_ref::<deno_net::tunnel::quinn::ConnectionError>()
   {

@@ -459,6 +459,7 @@ network_stream!(
     tokio_vsock::OwnedReadHalf,
     tokio_vsock::OwnedWriteHalf,
   ],
+  #[cfg(feature = "quic")]
   [
     Tunnel,
     tunnel,
@@ -488,6 +489,7 @@ pub enum NetworkStreamAddress {
   Unix(tokio::net::unix::SocketAddr),
   #[cfg(any(target_os = "android", target_os = "linux", target_os = "macos"))]
   Vsock(tokio_vsock::VsockAddr),
+  #[cfg(feature = "quic")]
   Tunnel(crate::tunnel::TunnelAddr),
   #[cfg(windows)]
   WindowsPipe(crate::win_pipe::WindowsPipeAddr),
@@ -513,6 +515,7 @@ impl From<tokio_vsock::VsockAddr> for NetworkStreamAddress {
   }
 }
 
+#[cfg(feature = "quic")]
 impl From<crate::tunnel::TunnelAddr> for NetworkStreamAddress {
   fn from(value: crate::tunnel::TunnelAddr) -> Self {
     NetworkStreamAddress::Tunnel(value)
@@ -542,6 +545,7 @@ pub enum TakeNetworkStreamError {
   #[class("Busy")]
   #[error("Vsock socket is currently in use")]
   VsockBusy,
+  #[cfg(feature = "quic")]
   #[class("Busy")]
   #[error("Tunnel socket is currently in use")]
   TunnelBusy,
@@ -621,6 +625,7 @@ pub fn take_network_stream_resource(
     return Ok(NetworkStream::Vsock(vsock_stream));
   }
 
+  #[cfg(feature = "quic")]
   if let Ok(resource_rc) =
     resource_table.take::<crate::tunnel::TunnelStreamResource>(stream_rid)
   {

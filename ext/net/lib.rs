@@ -6,10 +6,12 @@ pub mod ops;
 pub mod ops_tls;
 #[cfg(unix)]
 pub mod ops_unix;
+#[cfg(feature = "quic")]
 mod quic;
 pub mod raw;
 pub mod resolve_addr;
 pub mod tcp;
+#[cfg(feature = "quic")]
 pub mod tunnel;
 #[cfg(windows)]
 pub mod win_pipe;
@@ -20,6 +22,7 @@ use deno_core::OpState;
 use deno_features::FeatureChecker;
 use deno_tls::RootCertStoreProvider;
 use deno_tls::rustls::RootCertStore;
+#[cfg(feature = "quic")]
 pub use quic::QuicError;
 
 pub const UNSTABLE_FEATURE_NAME: &str = "net";
@@ -98,8 +101,58 @@ impl DefaultTlsOptions {
 /// would override previously used alias.
 pub struct UnsafelyIgnoreCertificateErrors(pub Option<Vec<String>>);
 
+fn quic_ops() -> Vec<deno_core::OpDecl> {
+  #[cfg(feature = "quic")]
+  {
+    vec![
+      ops::op_net_listen_tunnel(),
+      ops::op_net_accept_tunnel(),
+      quic::op_quic_connecting_0rtt(),
+      quic::op_quic_connecting_1rtt(),
+      quic::op_quic_connection_accept_bi(),
+      quic::op_quic_connection_accept_uni(),
+      quic::op_quic_connection_close(),
+      quic::op_quic_connection_closed(),
+      quic::op_quic_connection_get_protocol(),
+      quic::op_quic_connection_get_remote_addr(),
+      quic::op_quic_connection_get_server_name(),
+      quic::op_quic_connection_handshake(),
+      quic::op_quic_connection_open_bi(),
+      quic::op_quic_connection_open_uni(),
+      quic::op_quic_connection_get_max_datagram_size(),
+      quic::op_quic_connection_read_datagram(),
+      quic::op_quic_connection_send_datagram(),
+      quic::op_quic_endpoint_close(),
+      quic::op_quic_endpoint_connect(),
+      quic::op_quic_endpoint_create(),
+      quic::op_quic_endpoint_get_addr(),
+      quic::op_quic_endpoint_listen(),
+      quic::op_quic_incoming_accept(),
+      quic::op_quic_incoming_accept_0rtt(),
+      quic::op_quic_incoming_ignore(),
+      quic::op_quic_incoming_local_ip(),
+      quic::op_quic_incoming_refuse(),
+      quic::op_quic_incoming_remote_addr(),
+      quic::op_quic_incoming_remote_addr_validated(),
+      quic::op_quic_listener_accept(),
+      quic::op_quic_listener_stop(),
+      quic::op_quic_recv_stream_get_id(),
+      quic::op_quic_send_stream_get_id(),
+      quic::op_quic_send_stream_get_priority(),
+      quic::webtransport::op_webtransport_accept(),
+      quic::webtransport::op_webtransport_connect(),
+    ]
+  }
+
+  #[cfg(not(feature = "quic"))]
+  {
+    vec![]
+  }
+}
+
 deno_core::extension!(deno_net,
   deps = [ deno_web ],
+  ops_fn = quic_ops,
   ops = [
     ops::op_net_accept_tcp,
     ops::op_net_get_ips_from_perm_token,
@@ -124,9 +177,6 @@ deno_core::extension!(deno_net,
     ops::op_net_listen_vsock,
     ops::op_net_accept_vsock,
     ops::op_net_connect_vsock,
-    ops::op_net_listen_tunnel,
-    ops::op_net_accept_tunnel,
-
     ops_tls::op_tls_key_null,
     ops_tls::op_tls_key_static,
     ops_tls::op_tls_cert_resolver_create,
@@ -147,41 +197,6 @@ deno_core::extension!(deno_net,
     ops_unix::op_net_recv_unixpacket,
     ops_unix::op_net_send_unixpacket,
 
-    quic::op_quic_connecting_0rtt,
-    quic::op_quic_connecting_1rtt,
-    quic::op_quic_connection_accept_bi,
-    quic::op_quic_connection_accept_uni,
-    quic::op_quic_connection_close,
-    quic::op_quic_connection_closed,
-    quic::op_quic_connection_get_protocol,
-    quic::op_quic_connection_get_remote_addr,
-    quic::op_quic_connection_get_server_name,
-    quic::op_quic_connection_handshake,
-    quic::op_quic_connection_open_bi,
-    quic::op_quic_connection_open_uni,
-    quic::op_quic_connection_get_max_datagram_size,
-    quic::op_quic_connection_read_datagram,
-    quic::op_quic_connection_send_datagram,
-    quic::op_quic_endpoint_close,
-    quic::op_quic_endpoint_connect,
-    quic::op_quic_endpoint_create,
-    quic::op_quic_endpoint_get_addr,
-    quic::op_quic_endpoint_listen,
-    quic::op_quic_incoming_accept,
-    quic::op_quic_incoming_accept_0rtt,
-    quic::op_quic_incoming_ignore,
-    quic::op_quic_incoming_local_ip,
-    quic::op_quic_incoming_refuse,
-    quic::op_quic_incoming_remote_addr,
-    quic::op_quic_incoming_remote_addr_validated,
-    quic::op_quic_listener_accept,
-    quic::op_quic_listener_stop,
-    quic::op_quic_recv_stream_get_id,
-    quic::op_quic_send_stream_get_id,
-    quic::op_quic_send_stream_get_priority,
-    quic::op_quic_send_stream_set_priority,
-    quic::webtransport::op_webtransport_accept,
-    quic::webtransport::op_webtransport_connect,
   ],
   lazy_loaded_esm = [ "03_quic.js" ],
   lazy_loaded_js = [ "01_net.js", "02_tls.js" ],

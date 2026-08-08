@@ -15,6 +15,7 @@ deno_core::extension!(
     op_bootstrap_telemetry_enabled,
     op_bootstrap_numcpus,
     op_bootstrap_image_enabled,
+    op_bootstrap_quic_enabled,
     op_bootstrap_webgpu_enabled,
     op_bootstrap_user_agent,
     op_bootstrap_language,
@@ -116,6 +117,11 @@ pub fn op_bootstrap_webgpu_enabled() -> bool {
 #[op2(fast)]
 pub fn op_bootstrap_image_enabled() -> bool {
   cfg!(feature = "image")
+}
+
+#[op2(fast)]
+pub fn op_bootstrap_quic_enabled() -> bool {
+  cfg!(feature = "quic")
 }
 
 #[op2]

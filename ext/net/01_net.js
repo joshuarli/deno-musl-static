@@ -9,6 +9,7 @@ const {
   internalFdSymbol,
   createCancelHandle,
 } = core;
+const quicEnabled = core.ops.op_bootstrap_quic_enabled();
 const {
   op_dns_resolve,
   op_net_accept_tcp,
@@ -324,6 +325,9 @@ class Listener {
         promise = op_net_accept_vsock(this.#rid);
         break;
       case "tunnel":
+        if (!quicEnabled) {
+          throw new TypeError("Tunnel transport is disabled in this build");
+        }
         promise = op_net_accept_tunnel(this.#rid);
         break;
       default:
@@ -640,6 +644,9 @@ function listen(args) {
       return new Listener(rid, addr, "vsock");
     }
     case "tunnel": {
+      if (!quicEnabled) {
+        throw new TypeError("Tunnel transport is disabled in this build");
+      }
       const { 0: rid, 1: addr } = op_net_listen_tunnel();
       return new Listener(rid, addr, "tunnel");
     }

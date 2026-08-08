@@ -23,6 +23,7 @@ use deno_core::ResourceId;
 use deno_core::ToV8;
 use deno_core::op2;
 use deno_permissions::PermissionsContainer;
+use deno_tls::rustls;
 use hickory_proto::ProtoError;
 use hickory_proto::ProtoErrorKind;
 use hickory_proto::rr::Record;
@@ -35,7 +36,6 @@ use hickory_resolver::config::ResolverConfig;
 use hickory_resolver::config::ResolverOpts;
 use hickory_resolver::name_server::TokioConnectionProvider;
 use hickory_resolver::system_conf;
-use quinn::rustls;
 use serde::Deserialize;
 use serde::Serialize;
 use socket2::Domain;
@@ -50,6 +50,7 @@ use crate::raw::NetworkListenerResource;
 use crate::resolve_addr::resolve_addr;
 use crate::resolve_addr::resolve_addr_sync;
 use crate::tcp::TcpListener;
+#[cfg(feature = "quic")]
 use crate::tunnel::TunnelAddr;
 
 pub type Fd = u32;
@@ -78,6 +79,7 @@ impl From<SocketAddr> for IpAddr {
   }
 }
 
+#[cfg(feature = "quic")]
 impl From<TunnelAddr> for IpAddr {
   fn from(addr: TunnelAddr) -> Self {
     Self {
@@ -194,6 +196,7 @@ pub enum NetError {
   #[class(generic)]
   #[error("VSOCK is not supported on this platform")]
   VsockUnsupported,
+  #[cfg(feature = "quic")]
   #[class(generic)]
   #[error("Tunnel is not open")]
   TunnelMissing,
@@ -935,6 +938,7 @@ pub fn op_net_accept_vsock() -> Result<(), NetError> {
   Err(NetError::VsockUnsupported)
 }
 
+#[cfg(feature = "quic")]
 #[op2]
 pub fn op_net_listen_tunnel(
   state: &mut OpState,
@@ -950,6 +954,7 @@ pub fn op_net_listen_tunnel(
   Ok((rid, local_addr))
 }
 
+#[cfg(feature = "quic")]
 #[op2]
 pub async fn op_net_accept_tunnel(
   state: Rc<RefCell<OpState>>,

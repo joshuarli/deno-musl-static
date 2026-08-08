@@ -10,7 +10,7 @@ repository.workspace = true
 description = "Provides the deno runtime library"
 
 [features]
-default = ["webgpu"]
+default = ["quic", "webgpu"]
 # "fake" feature that allows to generate docs on docs.rs
 docsrs = []
 # A feature that allows excluding `./js/99_main.js` from the exported extension.
@@ -21,8 +21,14 @@ exclude_runtime_main_js = []
 hmr = ["transpile"]
 snapshot = ["transpile"]
 snapshot_files = ["transpile"]
-quickjs = ["deno_core/quickjs"]
+quickjs = ["deno_core/quickjs", "deno_http/default_property_extractor"]
 transpile = ["deno_ast"]
+quic = [
+  "deno_http/default_property_extractor",
+  "deno_http/quic",
+  "deno_net/quic",
+  "deno_web/webtransport",
+]
 image = ["dep:deno_image"]
 kv = ["dep:deno_kv"]
 telemetry = ["dep:deno_telemetry", "deno_http/telemetry"]
@@ -52,13 +58,13 @@ deno_features.workspace = true
 deno_fetch.workspace = true
 deno_ffi.workspace = true
 deno_fs = { workspace = true, features = ["sync_fs"] }
-deno_http.workspace = true
+deno_http = { workspace = true, default-features = false }
 deno_image = { workspace = true, optional = true }
 deno_inspector_server.workspace = true
 deno_io.workspace = true
 deno_kv = { workspace = true, optional = true }
 deno_napi.workspace = true
-deno_net.workspace = true
+deno_net = { workspace = true, default-features = false }
 deno_node.workspace = true
 deno_node_crypto.workspace = true
 deno_node_sqlite.workspace = true
@@ -71,7 +77,7 @@ deno_signals.workspace = true
 deno_telemetry = { workspace = true, optional = true }
 deno_terminal.workspace = true
 deno_tls.workspace = true
-deno_web.workspace = true
+deno_web = { workspace = true, default-features = false }
 deno_webgpu = { workspace = true, optional = true }
 deno_webidl.workspace = true
 deno_websocket.workspace = true

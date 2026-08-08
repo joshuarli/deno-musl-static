@@ -122,12 +122,12 @@ deno_crypto = { version = "0.271.0", path = "./ext/crypto" }
 deno_fetch = { version = "0.281.0", path = "./ext/fetch" }
 deno_ffi = { version = "0.244.0", path = "./ext/ffi" }
 deno_fs = { version = "0.167.0", path = "./ext/fs" }
-deno_http = { version = "0.255.0", path = "./ext/http" }
+deno_http = { version = "0.255.0", path = "./ext/http", default-features = false }
 deno_image = { version = "0.33.0", path = "./ext/image" }
 deno_io = { version = "0.167.0", path = "./ext/io" }
 deno_kv = { version = "0.165.0", path = "./ext/kv" }
 deno_napi = { version = "0.188.0", path = "./ext/napi" }
-deno_net = { version = "0.249.0", path = "./ext/net" }
+deno_net = { version = "0.249.0", path = "./ext/net", default-features = false }
 deno_node = { version = "0.195.0", path = "./ext/node" }
 deno_node_crypto = { version = "0.27.0", path = "./ext/node_crypto" }
 deno_node_sqlite = { version = "0.27.0", path = "./ext/node_sqlite" }
@@ -136,7 +136,7 @@ deno_process = { version = "0.72.0", path = "./ext/process" }
 deno_signals = { version = "0.48.0", path = "./ext/signals" }
 deno_telemetry = { version = "0.79.0", path = "./ext/telemetry" }
 deno_tls = { version = "0.244.0", path = "./ext/tls" }
-deno_web = { version = "0.288.0", path = "./ext/web" }
+deno_web = { version = "0.288.0", path = "./ext/web", default-features = false }
 deno_webgpu = { version = "0.224.0", path = "./ext/webgpu" }
 deno_webidl = { version = "0.257.0", path = "./ext/webidl" }
 deno_websocket = { version = "0.262.0", path = "./ext/websocket" }

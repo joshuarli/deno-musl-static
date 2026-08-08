@@ -5,6 +5,7 @@ import {
   op_net_listen_udp,
   op_net_listen_unixpacket,
   op_bootstrap_kv_enabled,
+  op_bootstrap_quic_enabled,
   op_bootstrap_telemetry_enabled,
   op_bootstrap_webgpu_enabled,
   op_runtime_cpu_usage,
@@ -77,6 +78,7 @@ const lazyTelemetry = () =>
 import { unstableIds } from "ext:deno_features/flags.js";
 const webgpuEnabled = op_bootstrap_webgpu_enabled();
 const kvEnabled = op_bootstrap_kv_enabled();
+const quicEnabled = op_bootstrap_quic_enabled();
 const telemetryEnabled = op_bootstrap_telemetry_enabled();
 
 if (!telemetryEnabled) {
@@ -394,29 +396,31 @@ denoNsUnstableById[unstableIds.net] = {
   ),
 };
 
-core.defineGlobalProperties(denoNsUnstableById[unstableIds.net], {
-  connectQuic: core.propWritableLazyLoaded((q) => q.connectQuic, loadQuic),
-  QuicEndpoint: core.propWritableLazyLoaded((q) => q.QuicEndpoint, loadQuic),
-  QuicBidirectionalStream: core.propWritableLazyLoaded(
-    (q) => q.QuicBidirectionalStream,
-    loadQuic,
-  ),
-  QuicConn: core.propWritableLazyLoaded((q) => q.QuicConn, loadQuic),
-  QuicListener: core.propWritableLazyLoaded((q) => q.QuicListener, loadQuic),
-  QuicReceiveStream: core.propWritableLazyLoaded(
-    (q) => q.QuicReceiveStream,
-    loadQuic,
-  ),
-  QuicSendStream: core.propWritableLazyLoaded(
-    (q) => q.QuicSendStream,
-    loadQuic,
-  ),
-  QuicIncoming: core.propWritableLazyLoaded((q) => q.QuicIncoming, loadQuic),
-  upgradeWebTransport: core.propWritableLazyLoaded(
-    (wt) => wt.upgradeWebTransport,
-    loadWebTransport,
-  ),
-});
+if (quicEnabled) {
+  core.defineGlobalProperties(denoNsUnstableById[unstableIds.net], {
+    connectQuic: core.propWritableLazyLoaded((q) => q.connectQuic, loadQuic),
+    QuicEndpoint: core.propWritableLazyLoaded((q) => q.QuicEndpoint, loadQuic),
+    QuicBidirectionalStream: core.propWritableLazyLoaded(
+      (q) => q.QuicBidirectionalStream,
+      loadQuic,
+    ),
+    QuicConn: core.propWritableLazyLoaded((q) => q.QuicConn, loadQuic),
+    QuicListener: core.propWritableLazyLoaded((q) => q.QuicListener, loadQuic),
+    QuicReceiveStream: core.propWritableLazyLoaded(
+      (q) => q.QuicReceiveStream,
+      loadQuic,
+    ),
+    QuicSendStream: core.propWritableLazyLoaded(
+      (q) => q.QuicSendStream,
+      loadQuic,
+    ),
+    QuicIncoming: core.propWritableLazyLoaded((q) => q.QuicIncoming, loadQuic),
+    upgradeWebTransport: core.propWritableLazyLoaded(
+      (wt) => wt.upgradeWebTransport,
+      loadWebTransport,
+    ),
+  });
+}
 
 // denoNsUnstableById[unstableIds.unsafeProto] = { __proto__: null }
 
