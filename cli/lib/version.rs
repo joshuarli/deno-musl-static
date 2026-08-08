@@ -118,6 +118,23 @@ impl DenoVersionInfo {
   }
 }
 
+/// Format the version identity embedded in the compiler/runtime pair.
+///
+/// `denort --version` uses this so the compiler can ask its adjacent runtime
+/// for the exact source revision and engine that were embedded in the pair.
+pub fn version_with_git_short_hash() -> String {
+  let git_hash = DENO_VERSION_INFO.git_hash;
+  let short_git_hash = git_hash.get(..7).unwrap_or(git_hash);
+
+  format!(
+    "deno {} ({})\n{} {}",
+    DENO_VERSION_INFO.deno,
+    short_git_hash,
+    deno_runtime::deno_core::v8::ENGINE_NAME,
+    deno_runtime::deno_core::v8::ENGINE_VERSION_STRING,
+  )
+}
+
 fn release_channel_from_version_string(version: &str) -> ReleaseChannel {
   let v = deno_semver::Version::parse_standard(version).ok();
   match v.and_then(|v| v.pre.first().map(|s| s.as_str().to_string())) {

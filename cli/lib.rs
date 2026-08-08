@@ -40,6 +40,7 @@ use std::io::IsTerminal;
 use std::io::Write as _;
 use std::ops::Deref;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 
 use args::TaskFlags;
@@ -859,6 +860,43 @@ pub(crate) fn boot_phase(label: &str) {
   }
 }
 
+fn extract_git_hash(version_output: &str) -> Option<&str> {
+  version_output.split_whitespace().find_map(|token| {
+    let token =
+      token.trim_matches(|character: char| !character.is_ascii_hexdigit());
+    if (7..=40).contains(&token.len())
+      && token.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+      Some(token)
+    } else {
+      None
+    }
+  })
+}
+
+fn display_version() -> String {
+  let denort = match env::current_exe() {
+    Ok(path) => match standalone::binary::get_denort_path(path) {
+      Some(path) => path,
+      None => return deno_lib::version::version_with_git_short_hash(),
+    },
+    Err(_) => return deno_lib::version::version_with_git_short_hash(),
+  };
+
+  let output = Command::new(denort).arg("--version").output();
+  match output {
+    Ok(output) if output.status.success() => {
+      let version_output = String::from_utf8_lossy(&output.stdout);
+      if extract_git_hash(&version_output).is_some() {
+        version_output.trim().to_owned()
+      } else {
+        deno_lib::version::version_with_git_short_hash()
+      }
+    }
+    _ => deno_lib::version::version_with_git_short_hash(),
+  }
+}
+
 pub fn main() {
   boot_phase("main start");
   #[cfg(feature = "dhat-heap")]
@@ -984,11 +1022,7 @@ async fn resolve_flags_and_init(
       Err(err) if err.kind == CliErrorKind::DisplayVersion => {
         boot_phase("argument parse (version exit)");
         // Ignore results to avoid BrokenPipe errors.
-        let _ = writeln!(
-          std::io::stdout(),
-          "{}",
-          deno_lib::version::DENO_VERSION_INFO.deno
-        );
+        let _ = writeln!(std::io::stdout(), "{}", display_version());
         deno_runtime::exit(0);
       }
       Err(err) => exit_for_error(AnyError::from(err), initial_cwd.as_deref()),
@@ -1129,6 +1163,25 @@ async fn resolve_flags_and_init(
   }
 
   Ok(flags)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::extract_git_hash;
+
+  #[test]
+  fn extracts_git_hash_from_denort_version() {
+    assert_eq!(
+      extract_git_hash("deno 2.9.5 (671a925)\nquickjs 0.15.1"),
+      Some("671a925")
+    );
+  }
+
+  #[test]
+  fn ignores_short_or_non_hex_version_tokens() {
+    assert_eq!(extract_git_hash("deno 2.9.5 (671a9)"), None);
+    assert_eq!(extract_git_hash("2.9.5 (not-a-git-hash)"), None);
+  }
 }
 
 fn init_v8(flags: &Flags) {

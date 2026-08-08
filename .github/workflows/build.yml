@@ -173,7 +173,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          release_name="deno-${GITHUB_SHA}-linux-musl-static"
+          release_name="prerelease-${GITHUB_SHA}"
           mapfile -d '' release_files < <(find artifacts -type f -name '*.zip' -print0 | sort -z)
           test "${#release_files[@]}" -eq 6
           expected_assets=(
