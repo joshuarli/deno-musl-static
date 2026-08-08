@@ -81,11 +81,19 @@ pub fn main() {
 
   deno_runtime::deno_permissions::mark_standalone();
 
+  let args: Vec<_> = env::args_os().collect();
+  if args
+    .get(1)
+    .is_some_and(|arg| arg == "--version" || arg == "-V")
+  {
+    println!("{}", deno_lib::version::version_with_git_short_hash());
+    return;
+  }
+
   rustls::crypto::aws_lc_rs::default_provider()
     .install_default()
     .unwrap();
 
-  let args: Vec<_> = env::args_os().collect();
   let standalone = extract_standalone(Cow::Owned(args));
   let future = async move {
     match standalone {
