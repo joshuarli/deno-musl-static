@@ -25,6 +25,8 @@ use deno_lib::standalone::virtual_fs::VfsEntry;
 use deno_lib::standalone::virtual_fs::VfsEntryRef;
 use deno_lib::standalone::virtual_fs::VirtualDirectory;
 use deno_lib::standalone::virtual_fs::VirtualFile;
+use deno_runtime::deno_ffi::DenoRtNativeAddonLoader;
+use deno_runtime::deno_ffi::DenoRtNativeAddonLoaderRc;
 use deno_runtime::deno_fs::FileSystem;
 use deno_runtime::deno_fs::FsDirEntry;
 use deno_runtime::deno_fs::FsFileType;
@@ -39,8 +41,6 @@ use deno_runtime::deno_io::fs::FsError;
 use deno_runtime::deno_io::fs::FsResult;
 use deno_runtime::deno_io::fs::FsStat;
 use deno_runtime::deno_io::fs::FsStatFs;
-use deno_runtime::deno_napi::DenoRtNativeAddonLoader;
-use deno_runtime::deno_napi::DenoRtNativeAddonLoaderRc;
 use deno_runtime::deno_permissions::CheckedPath;
 use deno_runtime::deno_permissions::CheckedPathBuf;
 #[cfg(windows)]

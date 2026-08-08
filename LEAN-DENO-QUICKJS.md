@@ -103,6 +103,7 @@ its own commit so they can be rebased or reverted independently:
 | `deno_doc` | 793 | -22 |
 | `deno_kv` and `denokv_*` | 787 | -6 |
 | `deno_telemetry` and its QuickJS exporters | 777 | -10 |
+| `deno_napi` and its QuickJS-only support crates | 773 | -4 |
 
 `deno_kv` owns `Deno.openKv()`, including the local SQLite backend and the
 remote KV protocol. Removing it does not remove SQLite itself: the cache,
@@ -114,6 +115,13 @@ keeps the surrounding CLI and HTTP interfaces compiling with no-op fallback
 types while omitting the telemetry extension and exporter graph. V8 keeps the
 full implementation.
 
+`deno_napi` provides Node-API native addon loading. The QuickJS profile now
+omits the extension, its `napi_sym` generator, `libuv-sys-lite`, and its
+QuickJS-only `libloading` version. V8 explicitly enables the feature. The
+shared native-addon loader type remains in `deno_ffi` because FFI and
+standalone VFS plumbing still use it; this does not reintroduce the N-API
+extension.
+
 ### Final measured result
 
 The final comparison uses the existing `target/macos-aarch64-quickjs` cache
@@ -121,13 +129,16 @@ and the `release-quickjs` profile; no target directory was removed or reset.
 
 | Measurement | Before all cuts | After all cuts | Difference |
 | --- | ---: | ---: | ---: |
-| Normal/build package IDs | 862 | 777 | -85 (-9.86%) |
-| `deno` release binary | 92,101,840 B | 74,571,152 B | -17,530,688 B (-19.03%) |
-| `denort` release binary | 58,095,968 B | 48,952,816 B | -9,143,152 B (-15.74%) |
-| Combined binaries | 150,197,808 B | 123,523,968 B | -26,673,840 B (-17.76%) |
+| Normal/build package IDs | 862 | 773 | -89 (-10.32%) |
+| `deno` release binary | 92,101,840 B | 75,512,080 B | -16,589,760 B (-18.01%) |
+| `denort` release binary | 58,095,968 B | 48,901,936 B | -9,194,032 B (-15.83%) |
+| Combined binaries | 150,197,808 B | 124,414,016 B | -25,783,792 B (-17.17%) |
 
-Relative to the WebGPU-only build, the later cuts remove another 54 package
-IDs and 15,997,312 B from the combined release binaries (-11.47%).
+Relative to the WebGPU-only build, the later cuts remove another 58 package
+IDs and 15,107,264 B from the combined release binaries (-10.83%). The N-API
+cut itself removes four package IDs; this particular release link is 890,048 B
+larger than the immediately preceding telemetry-only binary, so its binary
+impact is not positive in this measurement despite the graph reduction.
 
 ### Validation
 
@@ -158,17 +169,46 @@ isolated build each.
    1-4 MB per release binary, with medium implementation friction because
    worker initialization and FFI globals/declarations must be gated.
 
-2. `deno_napi` (Node-API native addons) is a good second cut if `~/d/pi` does
-   not load native npm addons. It has a dedicated `libuv-sys-lite` backend and
-   N-API loader/symbol-generation code, but much of its surrounding graph is
-   shared with Node support. Expected impact: roughly 3-5 package IDs and
-   about 0.5-2 MB per release binary; implementation friction is medium/high
-   because the loader, finalizers, Node module path, and declarations are
-   intertwined in the worker.
+2. `deno_inspector_server` is a plausible cut if pi will never use
+   `--inspect` or DevTools connections. It is a runtime/debugging boundary,
+   but worker inspector channels and CLI inspector setup need to be gated.
+   Expected impact: one workspace package plus roughly 0.5-1.5 MB per release
+   binary; implementation friction is medium.
 
-3. `deno_node_sqlite` removes the `node:sqlite` compatibility API. It is easy
-   to identify and feature-gate, but it will not remove `rusqlite` or the
-   bundled SQLite library because cache and Web Storage still use them.
-   Expected impact: one guaranteed workspace package plus a modest binary
-   reduction, likely under 1 MB per binary; implementation friction is low to
-   medium.
+3. `deno_cron` is a small, low-risk API cut if pi does not use
+   `Deno.cron()`. It is unlikely to produce a dramatic binary reduction, but
+   it is relatively contained and should remove one workspace package with
+   less coupling than inspector or FFI. Expected impact: under 0.5 MB per
+   release binary; implementation friction is low to medium.
+
+## Investigated but not cut
+
+### `deno_snapshots`
+
+`deno_snapshots` is not V8-only in the QuickJS profile. QuickJS enables its
+`disable` feature, which omits the V8 startup blob but still runs the snapshot
+crate's build script to generate `EXTENSION_RESIDUAL_SOURCES.rs`. The CLI,
+`denort`, and TSC paths consume its `RESIDUAL_LAZY_JS`,
+`RESIDUAL_LAZY_ESM`, and `TS_VERSION` exports. Removing the crate would mean
+moving that source-table generation and version export into another package;
+it would remove only one workspace package and would not remove the generated
+runtime source data. This is low-value and higher-friction than the cuts above.
+
+### `deno_ffi`
+
+The current `~/d/pi` source and build paths contain no `Deno.dlopen` or other
+Deno FFI usage. However, `deno_runtime` currently initializes the FFI
+extension and uses its re-export of the shared `DenoRtNativeAddonLoader` type;
+that loader is also used by standalone VFS/native-addon plumbing. Removing
+`deno_ffi` would therefore require gating the FFI extension, its JavaScript
+surface, loader state, and the Cranelift/`libffi` dependency family. It remains
+a plausible next cut for a pi-only profile, but should be isolated after the
+N-API change.
+
+### SQLite
+
+SQLite is intentionally retained for `~/d/pi`. `deno_node_sqlite` implements
+the Node `node:sqlite` API, which pi’s SQLite session backend imports directly.
+`deno_cache` and `deno_webstorage` also reach the shared
+`rusqlite`/`libsqlite3-sys` stack. SQLite is therefore not a candidate for the
+current pi profile.

@@ -545,6 +545,7 @@ fn main() {
     return;
   }
 
+  #[cfg(feature = "v8")]
   deno_napi::print_linker_flags("deno");
   #[cfg(feature = "webgpu")]
   deno_webgpu::print_linker_flags("deno");
